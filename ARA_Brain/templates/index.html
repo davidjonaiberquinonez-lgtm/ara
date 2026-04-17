@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ara IA - Intelligent Warehouse</title>
+    
+    <script src="{{ url_for('static', filename='mockdata.js') }}"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root {
+            --primary: #0f172a; --accent: #3b82f6; --success: #10b981;
+            --warning: #f59e0b; --danger: #ef4444; --bg: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0; background-color: var(--bg); color: var(--primary);
+            overflow-x: hidden; touch-action: manipulation;
+        }
+
+        /* Contenedores de Pantalla */
+        .screen { display: none; min-height: 100vh; padding: 20px; box-sizing: border-box; animation: fadeIn 0.3s ease; }
+        .active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Login Estilo Tarjeta */
+        .login-card {
+            background: white; padding: 40px 25px; border-radius: 24px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); margin-top: 15vh; text-align: center;
+        }
+        .login-card h1 { margin: 0; font-size: 2.5rem; letter-spacing: -1px; color: var(--primary); }
+        .login-card input {
+            width: 100%; padding: 16px; margin: 10px 0; border: 2px solid #e2e8f0;
+            border-radius: 12px; font-size: 16px; box-sizing: border-box; outline: none;
+        }
+        .login-card input:focus { border-color: var(--accent); }
+
+        /* Grid del Menú Profesional */
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 25px; }
+        .menu-btn {
+            background: white; border: none; padding: 30px 15px; border-radius: 20px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 12px; font-weight: 700; color: var(--primary); font-size: 14px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s;
+        }
+        .menu-btn:active { transform: scale(0.95); background: #f8fafc; }
+        .menu-btn i { color: var(--accent); width: 32px; height: 32px; }
+        .restricted { border: 2px solid #dbeafe; display: none; }
+
+        /* Módulos de Trabajo */
+        .card-item {
+            background: white; padding: 18px; border-radius: 16px; margin-bottom: 12px;
+            border-left: 6px solid var(--accent); display: flex; flex-direction: column; gap: 8px;
+        }
+        .badge {
+            background: #fef9c3; color: #854d0e; padding: 4px 10px;
+            border-radius: 6px; font-size: 12px; font-weight: 800; width: fit-content;
+        }
+
+        /* Botón Ara Flotante */
+        #ara-floating-btn {
+            position: fixed; bottom: 25px; right: 25px; width: 64px; height: 64px;
+            background: var(--primary); color: white; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.3); z-index: 1000; touch-action: none;
+        }
+
+        /* Ventana de Chat */
+        #ara-chat-window {
+            position: fixed; bottom: 100px; right: 20px; width: 320px; height: 450px;
+            background: white; border-radius: 24px; display: none; flex-direction: column;
+            box-shadow: 0 20px 25px rgba(0,0,0,0.2); z-index: 999; overflow: hidden;
+        }
+        .chat-header { background: var(--primary); color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; }
+        .chat-body { flex: 1; padding: 15px; overflow-y: auto; background: #f8fafc; font-size: 14px; }
+        .msg { padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; max-width: 80%; }
+        .msg-ara { background: white; align-self: flex-start; border: 1px solid #e2e8f0; }
+        .msg-user { background: var(--accent); color: white; align-self: flex-end; margin-left: auto; }
+
+        /* Botón Acción Principal */
+        .btn-action {
+            width: 100%; padding: 18px; border: none; border-radius: 16px;
+            background: var(--accent); color: white; font-weight: bold; font-size: 16px; margin-top: 10px;
+        }
+        .btn-vision { background: var(--success); display: flex; align-items: center; justify-content: center; gap: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen" class="screen active">
+        <div class="login-card">
+            <h1>Ara IA</h1>
+            <p style="color: #64748b;">Intelligent Logistics System</p>
+            <input type="text" id="userid" placeholder="ID Operador">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button class="btn-action" onclick="login()">INICIAR TURNO</button>
+        </div>
+    </div>
+
+    <div id="menu-screen" class="screen">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h2 style="margin:0">Panel de Control</h2>
+                <small id="active-user-name" style="color:var(--accent)"></small>
+            </div>
+            <button onclick="logout()" style="background:none; color:var(--danger); font-weight:bold; border:none;">Salir</button>
+        </div>
+
+        <div class="menu-grid">
+            <button class="menu-btn" onclick="openModule('preparacion')"><i data-lucide="clipboard-list"></i>Preparación</button>
+            <button class="menu-btn" onclick="openModule('chequeo')"><i data-lucide="check-circle"></i>Chequeo</button>
+            <button class="menu-btn" onclick="openModule('embalaje')"><i data-lucide="box"></i>Embalaje</button>
+            <button class="menu-btn restricted" id="btn-traslados" onclick="openModule('traslados')"><i data-lucide="refresh-cw"></i>Traslados</button>
+            <button class="menu-btn" onclick="openModule('rutas')"><i data-lucide="truck"></i>Rutas</button>
+            <button class="menu-btn" onclick="openModule('bandeja')"><i data-lucide="mail"></i>Bandeja</button>
+        </div>
+    </div>
+
+    <div id="module-screen" class="screen">
+        <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
+            <button onclick="backToMenu()" style="background:#e2e8f0; border:none; border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center;"><i data-lucide="chevron-left" style="color:black"></i></button>
+            <h2 id="module-title" style="margin:0; text-transform:uppercase;">Módulo</h2>
+        </div>
+        
+        <div id="module-content"></div>
+    </div>
+
+    <div id="ara-floating-btn"><i data-lucide="cpu"></i></div>
+    <div id="ara-chat-window">
+        <div class="chat-header"><span>Ara Assistant</span><i data-lucide="x" onclick="toggleChat()" style="width:18px; cursor:pointer"></i></div>
+        <div class="chat-body" id="chat-body">
+            <div class="msg msg-ara">Hola David, ¿en qué ubicación trabajamos hoy?</div>
+        </div>
+        <div style="padding:10px; display:flex; gap:5px; background:white;">
+            <input type="text" id="chat-msg" placeholder="Pregunta a Ara..." style="flex:1; padding:10px; border-radius:12px; border:1px solid #ddd;">
+            <button onclick="sendAraMsg()" style="background:var(--primary); color:white; border:none; border-radius:12px; padding:0 15px;"><i data-lucide="send" style="width:16px;"></i></button>
+        </div>
+    </div>
+
+    <script>
+        // Inicializar Iconos
+        lucide.createIcons();
+
+        function login() {
+            const id = document.getElementById('userid').value;
+            const pass = document.getElementById('password').value;
+            if (typeof BD_Prueba === 'undefined') return alert("Error de conexión con Ara Brain");
+
+            const user = BD_Prueba.usuarios.find(u => u.id === id && u.password === pass);
+            if(user) {
+                document.getElementById('active-user-name').innerText = `Op: ${user.nombre}`;
+                document.getElementById('btn-traslados').style.display = (user.rol === 'admin' || user.rol === 'supervisor') ? 'flex' : 'none';
+                document.getElementById('login-screen').classList.remove('active');
+                document.getElementById('menu-screen').classList.add('active');
+            } else { alert("Acceso denegado"); }
+        }
+
+        function logout() { location.reload(); }
+
+        function openModule(name) {
+            document.getElementById('menu-screen').classList.remove('active');
+            document.getElementById('module-screen').classList.add('active');
+            document.getElementById('module-title').innerText = name;
+            
+            if(name === 'preparacion') cargarPreparacion();
+            else {
+                document.getElementById('module-content').innerHTML = `
+                    <div style="text-align:center; padding:40px;">
+                        <i data-lucide="camera" style="width:60px; height:60px; color:#cbd5e1; margin-bottom:20px;"></i>
+                        <p>Iniciando Ara Visión para ${name}...</p>
+                        <button class="btn-action btn-vision" onclick="alert('Activando Cámara...')"><i data-lucide="aperture"></i> ESCANEAR AHORA</button>
+                    </div>
+                `;
+                lucide.createIcons();
+            }
+        }
+
+        function cargarPreparacion() {
+            const items = [
+                { id: "7210783", ubi: "MDI01-P4", desc: "Ibuprofeno 800mg", cant: 12 },
+                { id: "7210784", ubi: "MDA06-P4", desc: "Acetaminofen 650mg", cant: 8 }
+            ].sort((a,b) => a.ubi.localeCompare(b.ubi));
+
+            let html = `<p style="margin-bottom:15px; color:#64748b;">Artículos por ubicación:</p>`;
+            items.forEach(i => {
+                html += `
+                    <div class="card-item">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="badge">${i.ubi}</span>
+                            <b style="color:var(--accent)">Unid: ${i.cant}</b>
+                        </div>
+                        <b style="font-size:16px;">${i.desc}</b>
+                        <small style="color:#94a3b8">Cod: ${i.id}</small>
+                        <button class="btn-action btn-vision" style="padding:10px; font-size:12px;" onclick="alert('Escaneando ${i.id}')"><i data-lucide="maximize" style="width:14px;"></i> VALIDAR ARTÍCULO</button>
+                    </div>`;
+            });
+            document.getElementById('module-content').innerHTML = html;
+            lucide.createIcons();
+        }
+
+        function backToMenu() {
+            document.getElementById('module-screen').classList.remove('active');
+            document.getElementById('menu-screen').classList.add('active');
+        }
+
+        function toggleChat() {
+            const chat = document.getElementById('ara-chat-window');
+            chat.style.display = (chat.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function sendAraMsg() {
+            const input = document.getElementById('chat-msg');
+            const body = document.getElementById('chat-body');
+            if(!input.value) return;
+            body.innerHTML += `<div class="msg msg-user">${input.value}</div>`;
+            const val = input.value.toLowerCase();
+            input.value = "";
+            setTimeout(() => {
+                let res = "David, estoy analizando la base de datos local...";
+                if(val.includes("donde") || val.includes("ubicacion")) res = "Los analgésicos suelen estar en el pasillo MDI. ¿Buscas algún código?";
+                body.innerHTML += `<div class="msg msg-ara">${res}</div>`;
+                body.scrollTop = body.scrollHeight;
+            }, 800);
+        }
+
+        // Draggable Ara Button
+        const btn = document.getElementById('ara-floating-btn');
+        let move = false;
+        btn.addEventListener('touchmove', (e) => {
+            move = true; let t = e.touches[0];
+            btn.style.left = (t.clientX - 32)+'px'; btn.style.top = (t.clientY - 32)+'px';
+            btn.style.right = 'auto'; btn.style.bottom = 'auto';
+        });
+        btn.addEventListener('touchend', () => { if(!move) toggleChat(); move = false; });
+    </script>
+</body>
+</html>
