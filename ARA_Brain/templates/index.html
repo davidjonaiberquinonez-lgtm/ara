@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ara IA - Intelligent Warehouse</title>
     
-    <script src="{{ url_for('static', filename='mockdata.js') }}"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -20,12 +19,10 @@
             overflow-x: hidden; touch-action: manipulation;
         }
 
-        /* Contenedores de Pantalla */
         .screen { display: none; min-height: 100vh; padding: 20px; box-sizing: border-box; animation: fadeIn 0.3s ease; }
         .active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Login Estilo Tarjeta */
         .login-card {
             background: white; padding: 40px 25px; border-radius: 24px;
             box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); margin-top: 15vh; text-align: center;
@@ -35,31 +32,40 @@
             width: 100%; padding: 16px; margin: 10px 0; border: 2px solid #e2e8f0;
             border-radius: 12px; font-size: 16px; box-sizing: border-box; outline: none;
         }
-        .login-card input:focus { border-color: var(--accent); }
 
-        /* Grid del Menú Profesional */
         .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 25px; }
         .menu-btn {
             background: white; border: none; padding: 30px 15px; border-radius: 20px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 12px; font-weight: 700; color: var(--primary); font-size: 14px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: 0.2s; position: relative;
         }
-        .menu-btn:active { transform: scale(0.95); background: #f8fafc; }
+        .menu-btn:active { transform: scale(0.95); }
         .menu-btn i { color: var(--accent); width: 32px; height: 32px; }
         .restricted { border: 2px solid #dbeafe; display: none; }
 
-        /* Módulos de Trabajo */
         .card-item {
-            background: white; padding: 18px; border-radius: 16px; margin-bottom: 12px;
-            border-left: 6px solid var(--accent); display: flex; flex-direction: column; gap: 8px;
+            background: white; padding: 18px; border-radius: 16px; margin-bottom: 15px;
+            border-left: 6px solid var(--primary); display: flex; flex-direction: column; gap: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
         .badge {
-            background: #fef9c3; color: #854d0e; padding: 4px 10px;
-            border-radius: 6px; font-size: 12px; font-weight: 800; width: fit-content;
+            background: #e2e8f0; color: #475569; padding: 4px 10px;
+            border-radius: 6px; font-size: 11px; font-weight: 800; width: fit-content;
         }
 
-        /* Botón Ara Flotante */
+        .search-container {
+            display: flex; gap: 10px; margin-bottom: 20px; background: white;
+            padding: 10px; border-radius: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .search-container input { flex: 1; border: none; outline: none; font-size: 14px; padding: 5px; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal-box { background: white; padding: 25px; border-radius: 20px; width: 85%; max-width: 400px; text-align: center; }
+
         #ara-floating-btn {
             position: fixed; bottom: 25px; right: 25px; width: 64px; height: 64px;
             background: var(--primary); color: white; border-radius: 50%;
@@ -67,27 +73,36 @@
             box-shadow: 0 10px 15px rgba(0,0,0,0.3); z-index: 1000; touch-action: none;
         }
 
-        /* Ventana de Chat */
         #ara-chat-window {
             position: fixed; bottom: 100px; right: 20px; width: 320px; height: 450px;
             background: white; border-radius: 24px; display: none; flex-direction: column;
             box-shadow: 0 20px 25px rgba(0,0,0,0.2); z-index: 999; overflow: hidden;
         }
         .chat-header { background: var(--primary); color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; }
-        .chat-body { flex: 1; padding: 15px; overflow-y: auto; background: #f8fafc; font-size: 14px; }
-        .msg { padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; max-width: 80%; }
-        .msg-ara { background: white; align-self: flex-start; border: 1px solid #e2e8f0; }
-        .msg-user { background: var(--accent); color: white; align-self: flex-end; margin-left: auto; }
+        .chat-body { flex: 1; padding: 15px; overflow-y: auto; background: #f8fafc; font-size: 14px; display: flex; flex-direction: column; }
+        .msg { padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; max-width: 85%; line-height: 1.4; }
+        .msg-ara { background: white; align-self: flex-start; border: 1px solid #e2e8f0; color: #334155; }
+        .msg-user { background: var(--accent); color: white; align-self: flex-end; }
 
-        /* Botón Acción Principal */
         .btn-action {
-            width: 100%; padding: 18px; border: none; border-radius: 16px;
-            background: var(--accent); color: white; font-weight: bold; font-size: 16px; margin-top: 10px;
+            width: 100%; padding: 12px; border: none; border-radius: 12px;
+            background: var(--accent); color: white; font-weight: bold; font-size: 13px; cursor: pointer;
         }
-        .btn-vision { background: var(--success); display: flex; align-items: center; justify-content: center; gap: 10px; }
     </style>
 </head>
 <body>
+
+    <div id="auth-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modal-title">Confirmar Acción</h3>
+            <input type="text" id="auth-id" placeholder="ID Responsable" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:8px;">
+            <input type="password" id="auth-pass" placeholder="Contraseña" style="width:100%; padding:12px; margin:10px 0; border:1px solid #ddd; border-radius:8px;">
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn-action" style="background:#64748b" onclick="closeAuthModal()">Cancelar</button>
+                <button class="btn-action" id="btn-confirm-auth">Confirmar</button>
+            </div>
+        </div>
+    </div>
 
     <div id="login-screen" class="screen active">
         <div class="login-card">
@@ -95,7 +110,7 @@
             <p style="color: #64748b;">Intelligent Logistics System</p>
             <input type="text" id="userid" placeholder="ID Operador">
             <input type="password" id="password" placeholder="Contraseña">
-            <button class="btn-action" onclick="login()">INICIAR TURNO</button>
+            <button class="btn-action" style="padding:18px; font-size:16px;" onclick="login()">INICIAR TURNO</button>
         </div>
     </div>
 
@@ -114,7 +129,10 @@
             <button class="menu-btn" onclick="openModule('embalaje')"><i data-lucide="box"></i>Embalaje</button>
             <button class="menu-btn restricted" id="btn-traslados" onclick="openModule('traslados')"><i data-lucide="refresh-cw"></i>Traslados</button>
             <button class="menu-btn" onclick="openModule('rutas')"><i data-lucide="truck"></i>Rutas</button>
-            <button class="menu-btn" onclick="openModule('bandeja')"><i data-lucide="mail"></i>Bandeja</button>
+            <button class="menu-btn" onclick="openModule('bandeja')">
+                <i data-lucide="mail"></i>Bandeja
+                <span id="notif-badge" style="position:absolute; top:15px; right:15px; background:var(--danger); color:white; font-size:10px; padding:2px 6px; border-radius:10px;">1</span>
+            </button>
         </div>
     </div>
 
@@ -123,7 +141,6 @@
             <button onclick="backToMenu()" style="background:#e2e8f0; border:none; border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center;"><i data-lucide="chevron-left" style="color:black"></i></button>
             <h2 id="module-title" style="margin:0; text-transform:uppercase;">Módulo</h2>
         </div>
-        
         <div id="module-content"></div>
     </div>
 
@@ -131,101 +148,296 @@
     <div id="ara-chat-window">
         <div class="chat-header"><span>Ara Assistant</span><i data-lucide="x" onclick="toggleChat()" style="width:18px; cursor:pointer"></i></div>
         <div class="chat-body" id="chat-body">
-            <div class="msg msg-ara">Hola David, ¿en qué ubicación trabajamos hoy?</div>
+            <div class="msg msg-ara">Hola David, ¿qué ubicación revisamos hoy?</div>
         </div>
-        <div style="padding:10px; display:flex; gap:5px; background:white;">
-            <input type="text" id="chat-msg" placeholder="Pregunta a Ara..." style="flex:1; padding:10px; border-radius:12px; border:1px solid #ddd;">
+        <div style="padding:10px; display:flex; gap:5px; background:white; border-top:1px solid #eee;">
+            <input type="text" id="chat-msg" placeholder="Pregunta a Ara..." style="flex:1; padding:10px; border-radius:12px; border:1px solid #ddd; outline:none;">
             <button onclick="sendAraMsg()" style="background:var(--primary); color:white; border:none; border-radius:12px; padding:0 15px;"><i data-lucide="send" style="width:16px;"></i></button>
         </div>
     </div>
 
     <script>
-        // Inicializar Iconos
         lucide.createIcons();
+        let usuarioActivo = null;
+        let carritoTraslado = [];
+        let notasPendientes = [
+            { id: 'TR-9901', creado_por: 'Admin', items: [{des: 'Atamel 500mg', ubi: 'A1-B2', cant: 10}] }
+        ];
+        
+        // Mensajes de la bandeja
+        let mensajesBandeja = [
+            { id: 1, emisor: "Sistema ARA", asunto: "Stock Bajo: Atamel 500mg", fecha: "10:30 AM", msg: "La ubicación A1-B2 reporta menos de 5 unidades.", leido: false },
+            { id: 2, emisor: "Supervisor", asunto: "Ruta 04 - Prioridad", fecha: "09:15 AM", msg: "David, prioriza la salida de los bultos para la zona norte.", leido: true }
+        ];
 
         function login() {
             const id = document.getElementById('userid').value;
             const pass = document.getElementById('password').value;
-            if (typeof BD_Prueba === 'undefined') return alert("Error de conexión con Ara Brain");
-
-            const user = BD_Prueba.usuarios.find(u => u.id === id && u.password === pass);
-            if(user) {
-                document.getElementById('active-user-name').innerText = `Op: ${user.nombre}`;
-                document.getElementById('btn-traslados').style.display = (user.rol === 'admin' || user.rol === 'supervisor') ? 'flex' : 'none';
+            if (id && pass) {
+                usuarioActivo = { nombre: id, rol: "admin" };
+                document.getElementById('active-user-name').innerText = `Op: ${usuarioActivo.nombre}`;
+                document.getElementById('btn-traslados').style.display = 'flex';
                 document.getElementById('login-screen').classList.remove('active');
                 document.getElementById('menu-screen').classList.add('active');
-            } else { alert("Acceso denegado"); }
+            } else { alert("Ingresa credenciales."); }
         }
 
         function logout() { location.reload(); }
-
-        function openModule(name) {
-            document.getElementById('menu-screen').classList.remove('active');
-            document.getElementById('module-screen').classList.add('active');
-            document.getElementById('module-title').innerText = name;
-            
-            if(name === 'preparacion') cargarPreparacion();
-            else {
-                document.getElementById('module-content').innerHTML = `
-                    <div style="text-align:center; padding:40px;">
-                        <i data-lucide="camera" style="width:60px; height:60px; color:#cbd5e1; margin-bottom:20px;"></i>
-                        <p>Iniciando Ara Visión para ${name}...</p>
-                        <button class="btn-action btn-vision" onclick="alert('Activando Cámara...')"><i data-lucide="aperture"></i> ESCANEAR AHORA</button>
-                    </div>
-                `;
-                lucide.createIcons();
-            }
-        }
-
-        function cargarPreparacion() {
-            const items = [
-                { id: "7210783", ubi: "MDI01-P4", desc: "Ibuprofeno 800mg", cant: 12 },
-                { id: "7210784", ubi: "MDA06-P4", desc: "Acetaminofen 650mg", cant: 8 }
-            ].sort((a,b) => a.ubi.localeCompare(b.ubi));
-
-            let html = `<p style="margin-bottom:15px; color:#64748b;">Artículos por ubicación:</p>`;
-            items.forEach(i => {
-                html += `
-                    <div class="card-item">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span class="badge">${i.ubi}</span>
-                            <b style="color:var(--accent)">Unid: ${i.cant}</b>
-                        </div>
-                        <b style="font-size:16px;">${i.desc}</b>
-                        <small style="color:#94a3b8">Cod: ${i.id}</small>
-                        <button class="btn-action btn-vision" style="padding:10px; font-size:12px;" onclick="alert('Escaneando ${i.id}')"><i data-lucide="maximize" style="width:14px;"></i> VALIDAR ARTÍCULO</button>
-                    </div>`;
-            });
-            document.getElementById('module-content').innerHTML = html;
-            lucide.createIcons();
-        }
 
         function backToMenu() {
             document.getElementById('module-screen').classList.remove('active');
             document.getElementById('menu-screen').classList.add('active');
         }
 
-        function toggleChat() {
-            const chat = document.getElementById('ara-chat-window');
-            chat.style.display = (chat.style.display === 'flex') ? 'none' : 'flex';
+        async function openModule(name) {
+            document.getElementById('menu-screen').classList.remove('active');
+            document.getElementById('module-screen').classList.add('active');
+            document.getElementById('module-title').innerText = name;
+            
+            if(name === 'preparacion') renderSubMenuPreparacion();
+            else if(name === 'traslados') renderSubMenuTraslados();
+            else if(name === 'bandeja') renderModuloBandeja();
+            else document.getElementById('module-content').innerHTML = `<p style="text-align:center; padding-top:20px;">Módulo ${name} en desarrollo...</p>`;
         }
 
-        function sendAraMsg() {
+        // --- MÓDULO PREPARACIÓN / VISOR ---
+        function renderSubMenuPreparacion() {
+            const content = document.getElementById('module-content');
+            content.innerHTML = `
+                <div class="menu-grid">
+                    <button class="menu-btn" onclick="renderVisorArticulos()"><i data-lucide="search"></i>Visor Artículos</button>
+                    <button class="menu-btn" onclick="alert('Próximamente...')"><i data-lucide="file-text"></i>Preparar Nota</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderVisorArticulos() {
+            const content = document.getElementById('module-content');
+            content.innerHTML = `
+                <div class="search-container">
+                    <input type="text" id="busqueda-visor" placeholder="Nombre o Código...">
+                    <button onclick="ejecutarVisor()" style="background:var(--primary); color:white; border:none; padding:10px; border-radius:10px;"><i data-lucide="search" style="width:16px"></i></button>
+                </div>
+                <div id="resultados-visor"></div>
+            `;
+            lucide.createIcons();
+        }
+
+        async function ejecutarVisor() {
+            const query = document.getElementById('busqueda-visor').value.toLowerCase();
+            const resBox = document.getElementById('resultados-visor');
+            if(query.length < 2) return;
+            resBox.innerHTML = "<p style='text-align:center'>Buscando...</p>";
+            
+            try {
+                const response = await fetch('/api/preparacion');
+                const items = await response.json();
+                const filtrados = items.filter(i => String(i.art_des).toLowerCase().includes(query) || String(i.co_art).toLowerCase().includes(query));
+                
+                resBox.innerHTML = filtrados.map(i => `
+                    <div class="card-item" style="border-left-color: var(--accent)">
+                        <div style="display:flex; justify-content:space-between;">
+                            <div><strong>${i.art_des}</strong><br><small>Cód: ${i.co_art}</small></div>
+                            <span class="badge" style="background:var(--primary); color:white;">STOCK: ${Math.round(i.stock_act)}</span>
+                        </div>
+                        <div style="margin-top:5px; font-size:12px; color:var(--accent)"><b>UBI: ${i.campo7 || 'S/U'}</b></div>
+                    </div>
+                `).join('');
+                if(filtrados.length === 0) resBox.innerHTML = "<p style='text-align:center'>Sin resultados.</p>";
+                lucide.createIcons();
+            } catch (e) { resBox.innerHTML = "<p style='color:red'>Error al conectar.</p>"; }
+        }
+
+        // --- MÓDULO TRASLADOS ---
+        function renderSubMenuTraslados() {
+            const content = document.getElementById('module-content');
+            content.innerHTML = `
+                <div class="menu-grid">
+                    <button class="menu-btn" onclick="renderCrearTraslado()"><i data-lucide="plus-circle"></i>Crear Traslado</button>
+                    <button class="menu-btn" onclick="renderRealizarTraslado()"><i data-lucide="truck"></i>Realizar Traslado</button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function renderCrearTraslado() {
+            const content = document.getElementById('module-content');
+            content.innerHTML = `
+                <div class="search-container">
+                    <input type="text" id="busqueda-surtir" placeholder="Buscar para surtir...">
+                    <button onclick="buscarParaSurtir()" style="background:var(--primary); color:white; border:none; padding:10px; border-radius:10px;"><i data-lucide="search" style="width:16px"></i></button>
+                </div>
+                <div id="resultados-surtir"></div>
+                <h4 style="margin:20px 0 10px 0">Lista de Surtido</h4>
+                <div id="lista-carrito"></div>
+                <button class="btn-action" style="margin-top:20px; background:var(--success);" onclick="preGuardarTraslado()">GUARDAR TRASLADO</button>
+            `;
+            actualizarVistaCarrito();
+            lucide.createIcons();
+        }
+
+        async function buscarParaSurtir() {
+            const query = document.getElementById('busqueda-surtir').value.toLowerCase();
+            const resBox = document.getElementById('resultados-surtir');
+            if(query.length < 2) return;
+            try {
+                const response = await fetch('/api/preparacion');
+                const items = await response.json();
+                const filtrados = items.filter(i => String(i.art_des).toLowerCase().includes(query));
+                resBox.innerHTML = filtrados.map(i => `
+                    <div class="card-item" style="padding:10px; margin-bottom:5px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <small>${i.art_des}</small>
+                            <button onclick="agregarAlTraslado('${i.co_art}', '${i.art_des}', '${i.campo7 || 'S/U'}')" style="background:var(--accent); color:white; border:none; padding:4px 8px; border-radius:5px;">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { resBox.innerHTML = "Error."; }
+        }
+
+        function agregarAlTraslado(id, des, ubi) {
+            const cant = prompt("Cantidad a surtir:");
+            if(cant > 0) {
+                carritoTraslado.push({ id, des, ubi, cant });
+                actualizarVistaCarrito();
+            }
+        }
+
+        function actualizarVistaCarrito() {
+            const box = document.getElementById('lista-carrito');
+            if(!box) return;
+            box.innerHTML = carritoTraslado.map((item, index) => `
+                <div style="display:flex; justify-content:space-between; background:white; padding:10px; border-radius:8px; margin-bottom:5px; font-size:12px;">
+                    <span><b>${item.cant}</b> x ${item.des}</span>
+                    <i data-lucide="trash-2" style="color:red; width:14px;" onclick="carritoTraslado.splice(${index},1); actualizarVistaCarrito();"></i>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function preGuardarTraslado() {
+            if(carritoTraslado.length === 0) return alert("Lista vacía");
+            openAuthModal("Confirmar Guardado", () => {
+                notasPendientes.push({ id: 'TR-' + Math.floor(Math.random()*9000), creado_por: document.getElementById('auth-id').value, items: [...carritoTraslado] });
+                carritoTraslado = [];
+                alert("Guardado.");
+                closeAuthModal();
+                renderSubMenuTraslados();
+            });
+        }
+
+        function renderRealizarTraslado() {
+            const content = document.getElementById('module-content');
+            content.innerHTML = `<h4>Notas Pendientes</h4>` + notasPendientes.map((n, index) => `
+                <div class="card-item" onclick="verDetalleNota(${index})" style="cursor:pointer; border-left-color:var(--warning)">
+                    <b>${n.id}</b><br><small>Items: ${n.items.length}</small>
+                </div>
+            `).join('');
+        }
+
+        function verDetalleNota(idx) {
+            const nota = notasPendientes[idx];
+            const content = document.getElementById('module-content');
+            content.innerHTML = `<h3>${nota.id}</h3>` + 
+                nota.items.map(i => `<div class="card-item">${i.des} - <b>Cant: ${i.cant}</b></div>`).join('') +
+                `<div style="display:flex; gap:10px; margin-top:20px;">
+                    <button class="btn-action" style="background:var(--success)" onclick="finalizarTraslado(${idx})">FINALIZAR</button>
+                </div>`;
+        }
+
+        function finalizarTraslado(idx) {
+            openAuthModal("Finalizar Traslado", () => {
+                notasPendientes.splice(idx,1);
+                alert("Traslado Finalizado.");
+                closeAuthModal();
+                renderRealizarTraslado();
+            });
+        }
+
+        // --- MÓDULO BANDEJA ---
+        function renderModuloBandeja() {
+            const content = document.getElementById('module-content');
+            content.innerHTML = `
+                <div id="bandeja-lista">
+                    ${mensajesBandeja.map(m => `
+                        <div class="card-item" onclick="abrirChatBandeja(${m.id})" style="cursor:pointer; border-left-color: ${m.leido ? '#cbd5e1' : 'var(--accent)'};">
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>${m.emisor}</strong>
+                                <small>${m.fecha}</small>
+                            </div>
+                            <div style="font-size: 13px; color: #475569;">${m.asunto}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div id="bandeja-detalle" style="display:none;"></div>
+            `;
+            lucide.createIcons();
+        }
+
+        function abrirChatBandeja(id) {
+            const msg = mensajesBandeja.find(m => m.id === id);
+            msg.leido = true;
+            const lista = document.getElementById('bandeja-lista');
+            const detalle = document.getElementById('bandeja-detalle');
+            lista.style.display = 'none';
+            detalle.style.display = 'block';
+            detalle.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    <button onclick="renderModuloBandeja()" style="background:none; border:none;"><i data-lucide="arrow-left" style="width:20px;"></i></button>
+                    <strong>${msg.emisor}</strong>
+                </div>
+                <div class="msg msg-ara" style="max-width:90%;">${msg.msg}</div>
+                <div id="respuestas-chat"></div>
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                    <input type="text" id="input-respuesta" placeholder="Escribe..." style="flex:1; padding:12px; border-radius:12px; border:1px solid #ddd; outline:none;">
+                    <button onclick="enviarRespuestaBandeja()" style="background:var(--primary); color:white; border:none; border-radius:12px; padding:0 15px;"><i data-lucide="send" style="width:16px;"></i></button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function enviarRespuestaBandeja() {
+            const val = document.getElementById('input-respuesta').value;
+            if(!val) return;
+            document.getElementById('respuestas-chat').innerHTML += `<div class="msg msg-user" style="max-width:90%; align-self: flex-end; margin-top:10px;">${val}</div>`;
+            document.getElementById('input-respuesta').value = "";
+        }
+
+        // --- ASISTENTE ARA ---
+        function toggleChat() { 
+            const chat = document.getElementById('ara-chat-window'); 
+            chat.style.display = (chat.style.display === 'flex') ? 'none' : 'flex'; 
+        }
+
+        async function sendAraMsg() {
             const input = document.getElementById('chat-msg');
             const body = document.getElementById('chat-body');
             if(!input.value) return;
             body.innerHTML += `<div class="msg msg-user">${input.value}</div>`;
-            const val = input.value.toLowerCase();
+            const query = input.value;
             input.value = "";
+            body.scrollTop = body.scrollHeight;
+            
+            // Simulación respuesta IA
             setTimeout(() => {
-                let res = "David, estoy analizando la base de datos local...";
-                if(val.includes("donde") || val.includes("ubicacion")) res = "Los analgésicos suelen estar en el pasillo MDI. ¿Buscas algún código?";
-                body.innerHTML += `<div class="msg msg-ara">${res}</div>`;
+                body.innerHTML += `<div class="msg msg-ara">Entendido David, revisando logística para "${query}"...</div>`;
                 body.scrollTop = body.scrollHeight;
-            }, 800);
+            }, 1000);
         }
 
-        // Draggable Ara Button
+        // --- FUNCIONES COMUNES MODAL ---
+        function openAuthModal(title, callback) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('auth-modal').style.display = 'flex';
+            document.getElementById('btn-confirm-auth').onclick = () => {
+                if(document.getElementById('auth-id').value && document.getElementById('auth-pass').value) callback();
+                else alert("Faltan datos");
+            };
+        }
+        function closeAuthModal() { document.getElementById('auth-modal').style.display = 'none'; }
+
+        // Draggable ARA Button
         const btn = document.getElementById('ara-floating-btn');
         let move = false;
         btn.addEventListener('touchmove', (e) => {
@@ -234,6 +446,7 @@
             btn.style.right = 'auto'; btn.style.bottom = 'auto';
         });
         btn.addEventListener('touchend', () => { if(!move) toggleChat(); move = false; });
+
     </script>
 </body>
 </html>
