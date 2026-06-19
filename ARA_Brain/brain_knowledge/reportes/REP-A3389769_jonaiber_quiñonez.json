@@ -1,0 +1,37 @@
+{
+    "id": "REP-A3389769",
+    "usuario": "jonaiber quiñonez",
+    "estante": "1CR04-P3",
+    "fecha": "2026-05-28 23:33:42",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000445",
+            "descripcion": "SALIC METILO+SALIC TROLAM+MENTOL+ALCANFOR+ARNICA (DISTROVIT GEL FORTE) X 120GR (DISTRILAB) FV. 02/2028                  ",
+            "ubicacion": "1CR04-P3",
+            "teorico": 35,
+            "fisico": 35,
+            "estado": "OK",
+            "detalle": "✅ CR000445: Verificado."
+        },
+        {
+            "codigo": "CR000497",
+            "descripcion": "CREMA CORPORAL HUMECTANTE CON EXTRACTO DE TRIGO FRASCO X 444ML (KORILI) FV.10/2028                                      ",
+            "ubicacion": "1CR04-P3",
+            "teorico": 3,
+            "fisico": 2,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000497 (CREMA CORPORAL HUMECTANTE CON EXTRACTO DE TRIGO FRASCO X 444ML (KORILI) FV.10/2028                                      ) en 1CR04-P3. Faltante 1 unidades."
+        },
+        {
+            "codigo": "CR000522",
+            "descripcion": "BECLOMETASONA + GENTAMICINA + CLOTRIMAZOL CREMA X 30GR (FAHD) FV. 01/2028                                               ",
+            "ubicacion": "1CR04-P3",
+            "teorico": 23,
+            "fisico": 24,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000522 (BECLOMETASONA + GENTAMICINA + CLOTRIMAZOL CREMA X 30GR (FAHD) FV. 01/2028                                               ) en 1CR04-P3. Sobrante 1 unidades."
+        }
+    ]
+}

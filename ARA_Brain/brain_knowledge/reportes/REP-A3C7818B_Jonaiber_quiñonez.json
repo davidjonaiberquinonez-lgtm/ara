@@ -1,0 +1,28 @@
+{
+    "id": "REP-A3C7818B",
+    "usuario": "Jonaiber quiñonez",
+    "estante": "1CR06-P5",
+    "fecha": "2026-06-02 08:57:57",
+    "total_articulos": 2,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000309",
+            "descripcion": "BETAMETASONA 0.05% + GENTAMICINA 0.1% + CLOTRIMAZOL 1% CREMA X 20GR (H&M) FV. 03/2028                                   ",
+            "ubicacion": "1CR06-P5",
+            "teorico": 463,
+            "fisico": 0,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000309 (BETAMETASONA 0.05% + GENTAMICINA 0.1% + CLOTRIMAZOL 1% CREMA X 20GR (H&M) FV. 03/2028                                   ) en 1CR06-P5. Faltante 463 unidades."
+        },
+        {
+            "codigo": "CR000394",
+            "descripcion": "HIDROCORTISONA 1% CREMA X 15GR (KMPLUS) FV. 02/2027                                                                     ",
+            "ubicacion": "1CR06-P5",
+            "teorico": 84,
+            "fisico": 0,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000394 (HIDROCORTISONA 1% CREMA X 15GR (KMPLUS) FV. 02/2027                                                                     ) en 1CR06-P5. Faltante 84 unidades."
+        }
+    ]
+}

@@ -1,0 +1,28 @@
+{
+    "id": "REP-7E4E5B76",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR04-P6",
+    "fecha": "2026-06-11 08:49:48",
+    "total_articulos": 3,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000536",
+            "descripcion": "LOCION PEDIA DERMOPROTECTORA (BEDUCIS) FRASCO X 200ML (BOOZ)  FV. 06/2027",
+            "ubicacion": "1CR04-P6",
+            "teorico": 3,
+            "fisico": 3,
+            "estado": "OK",
+            "detalle": "✅ CR000536: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000050",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 40GR C/6 APLICADORES (FARMIONNI) FV. 09/2028",
+            "ubicacion": "1CR04-P6",
+            "teorico": 1,
+            "fisico": 1,
+            "estado": "OK",
+            "detalle": "✅ CR000050: Verificado al pelo."
+        }
+    ]
+}

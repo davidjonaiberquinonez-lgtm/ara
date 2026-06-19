@@ -1,0 +1,37 @@
+{
+    "id": "REP-25ADDBF6",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR02-P1",
+    "fecha": "2026-05-11 23:35:33",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000164",
+            "descripcion": "CETOC 20MG + BETA 0.64MG + NEOM 2.5MG (CIMECORT) CREMA X 30GR (CIMED) FV. 05/2027                                       ",
+            "ubicacion": "1CR02-P1",
+            "teorico": 40,
+            "fisico": 40,
+            "estado": "OK",
+            "detalle": "✅ CR000164: Verificado."
+        },
+        {
+            "codigo": "CR000374",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 40GR C/ APLICADOR (H&M) FV. 05/2027                                                      ",
+            "ubicacion": "1CR02-P1",
+            "teorico": 267,
+            "fisico": 267,
+            "estado": "OK",
+            "detalle": "✅ CR000374: Verificado."
+        },
+        {
+            "codigo": "CR000444",
+            "descripcion": "ESTRIOL 0.1% (ESTROGIN) CREMA VAGINAL X 15GR (TIARES) FV. 02/2028                                                       ",
+            "ubicacion": "1CR02-P1",
+            "teorico": 85,
+            "fisico": 84,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000444 (ESTRIOL 0.1% (ESTROGIN) CREMA VAGINAL X 15GR (TIARES) FV. 02/2028                                                       ) en 1CR02-P1. Faltante 1 unidades."
+        }
+    ]
+}

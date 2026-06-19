@@ -1,0 +1,55 @@
+{
+    "id": "REP-62EB81D4",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P5",
+    "fecha": "2026-06-15 03:22:18 PM",
+    "total_articulos": 5,
+    "verificados": 0,
+    "detalles": [
+        {
+            "codigo": "CR000173",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P5",
+            "teorico": 27,
+            "fisico": 36,
+            "estado": "SOBRA",
+            "detalle": "🔥 CR000173: Sobran 9 unidades en estante."
+        },
+        {
+            "codigo": "CR000276",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P5",
+            "teorico": 27,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000276: Faltan 27 unidades en físico."
+        },
+        {
+            "codigo": "CR000386",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P5",
+            "teorico": 27,
+            "fisico": 45,
+            "estado": "SOBRA",
+            "detalle": "🔥 CR000386: Sobran 18 unidades en estante."
+        },
+        {
+            "codigo": "CR000410",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P5",
+            "teorico": 27,
+            "fisico": 9,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000410: Faltan 18 unidades en físico."
+        },
+        {
+            "codigo": "CR000540",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P5",
+            "teorico": 27,
+            "fisico": 5,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000540: Faltan 22 unidades en físico."
+        }
+    ]
+}

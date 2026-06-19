@@ -1,0 +1,19 @@
+{
+    "id": "REP-6DDB6311",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "2AMP0B-P7",
+    "fecha": "2026-05-30 00:45:38",
+    "total_articulos": 1,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "AMP00477",
+            "descripcion": "BROMURO DE HIOSCINA 20MG/5ML + DIPIRONA 2.5MG AMP I.V/I.M (VITALIS) FV. 09/2028                                         ",
+            "ubicacion": "2AMP0B-P7",
+            "teorico": 4659,
+            "fisico": 4659,
+            "estado": "OK",
+            "detalle": "✅ AMP00477: Verificado."
+        }
+    ]
+}

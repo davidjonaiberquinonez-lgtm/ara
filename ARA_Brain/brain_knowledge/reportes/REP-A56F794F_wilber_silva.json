@@ -1,0 +1,28 @@
+{
+    "id": "REP-A56F794F",
+    "usuario": "wilber silva",
+    "estante": "6MQ30-P2",
+    "fecha": "2026-05-15 12:30:59",
+    "total_articulos": 2,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "MQ00270",
+            "descripcion": "JERINGA 20CC AGUJA 21G X 1.1/2 (GROSSMED) FV. 05/2030                                                                   ",
+            "ubicacion": "6MQ30-P2",
+            "teorico": 9204,
+            "fisico": 9204,
+            "estado": "OK",
+            "detalle": "✅ MQ00270: Verificado."
+        },
+        {
+            "codigo": "MQ00647",
+            "descripcion": "JERINGA 5CC AGUJA 21G X 1 1/2 (INSUAMED) FV.04/2028                                                                     ",
+            "ubicacion": "6MQ30-P2",
+            "teorico": 10600,
+            "fisico": 10599,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: MQ00647 (JERINGA 5CC AGUJA 21G X 1 1/2 (INSUAMED) FV.04/2028                                                                     ) en 6MQ30-P2. Faltante 1 unidades."
+        }
+    ]
+}

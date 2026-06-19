@@ -1,0 +1,19 @@
+{
+    "id": "REP-47732BA0",
+    "usuario": "Hermes torres",
+    "estante": "6MQ02-P5",
+    "fecha": "2026-05-15 15:28:54",
+    "total_articulos": 1,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "MQ00593",
+            "descripcion": "TENSIOMETRO MANUAL CON ESTETOSCOPIO (BIALY)                                                                             ",
+            "ubicacion": "6MQ02-P5",
+            "teorico": 28,
+            "fisico": 28,
+            "estado": "OK",
+            "detalle": "✅ MQ00593: Verificado."
+        }
+    ]
+}

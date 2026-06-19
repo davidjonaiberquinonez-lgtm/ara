@@ -1,0 +1,37 @@
+{
+    "id": "REP-E76A0DF5",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR04-P5",
+    "fecha": "2026-06-11 08:47:54",
+    "total_articulos": 4,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000091",
+            "descripcion": "BACITRACINA + ZINC 500UI/GR UNG X 20GR (DAC55) FV. 11/2027",
+            "ubicacion": "1CR04-P5",
+            "teorico": 17,
+            "fisico": 17,
+            "estado": "OK",
+            "detalle": "✅ CR000091: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000457",
+            "descripcion": "CREMA FACIAL ANTISEPTICA 3ER PASO (SANALO) TARRO X 55GR (VARGAS) FV. 05/2028",
+            "ubicacion": "1CR04-P5",
+            "teorico": 10,
+            "fisico": 6,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000457 (CREMA FACIAL ANTISEPTICA 3ER PASO (SANALO) TARRO X 55GR (VARGAS) FV. 05/2028) en 1CR04-P5. Faltante 4 unidades."
+        },
+        {
+            "codigo": "CR000219",
+            "descripcion": "BACITRACINA 500UI UNGUENTO X 20GR (DISTRILAB) FV. 08/2027",
+            "ubicacion": "1CR04-P5",
+            "teorico": 63,
+            "fisico": 63,
+            "estado": "OK",
+            "detalle": "✅ CR000219: Verificado al pelo."
+        }
+    ]
+}
