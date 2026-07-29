@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+
+  ara_brain:
+    build: .
+    container_name: ara_brain
+    ports:
+      - "5000:5000"
+    volumes:
+      - ara_data:/app/ara/ARA_Brain/data
+      - ara_knowledge:/app/ara/ARA_Brain/brain_knowledge
+      - ara_media:/app/ara/ARA_Brain/media
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  ara_backup:
+    image: alpine:latest
+    container_name: ara_backup
+    volumes:
+      - ara_data:/data/data:ro
+      - ara_knowledge:/data/brain_knowledge:ro
+      - ara_media:/data/media:ro
+      - ./backups:/backups
+    entrypoint: >
+      sh -c "
+        apk add --no-cache sqlite > /dev/null 2>&1 &&
+        echo 'ARA Backup container ready.' &&
+        while true; do
+          sleep 3600 &&
+          ts=$(date +%Y%m%d_%H%M%S) &&
+          sqlite3 /data/data/proyecto_ara.db '.backup /backups/proyecto_ara_$ts.db' 2>/dev/null &&
+          echo \"[$ts] Backup creado: proyecto_ara_$ts.db\";
+        done
+      "
+    restart: unless-stopped
+
+volumes:
+  ara_data:
+  ara_knowledge:
+  ara_media:

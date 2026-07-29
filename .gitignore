@@ -1,0 +1,33 @@
+# Backups de archivos del proyecto
+backups/
+
+# Entorno virtual
+venv/
+ara/venv/
+
+# Archivos compilados de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Base de datos SQLite (produccion/desarrollo)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Reportes generados
+*.pdf
+
+# Configuracion del editor
+.vscode/
+
+# Archivos de entorno y secretos
+.env
+.env.*
+*.key
+*.pem
+
+# Archivos temporales del sistema
+Thumbs.db
+.DS_Store
