@@ -1,0 +1,28 @@
+{
+    "id": "REP-85951CEA",
+    "usuario": "wilber silva",
+    "estante": "6MQ34-P1",
+    "fecha": "2026-05-15 11:14:04",
+    "total_articulos": 2,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "MQ01222",
+            "descripcion": "KIT CITOLOGICO TALLA M (CEPILAB) FV. 02/2030                                                                            ",
+            "ubicacion": "6MQ34-P1",
+            "teorico": 299,
+            "fisico": 299,
+            "estado": "OK",
+            "detalle": "✅ MQ01222: Verificado."
+        },
+        {
+            "codigo": "MQ01395",
+            "descripcion": "MASCARILLA DE OXIGENO SIMPLE ADULTO (GROSSMED) FV. 03/2030                                                              ",
+            "ubicacion": "6MQ34-P1",
+            "teorico": 585,
+            "fisico": 585,
+            "estado": "OK",
+            "detalle": "✅ MQ01395: Verificado."
+        }
+    ]
+}

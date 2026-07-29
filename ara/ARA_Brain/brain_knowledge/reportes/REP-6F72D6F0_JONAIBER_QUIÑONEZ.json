@@ -1,0 +1,46 @@
+{
+    "id": "REP-6F72D6F0",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P4",
+    "fecha": "2026-07-27 08:49:42 AM",
+    "total_articulos": 4,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "CR000009",
+            "descripcion": "AZUFRE 10% + IVERMENTINA 1% + VITAMINA A-D Y E (SULFUROCIS) CREMA X 40GR (BOOZ) F.V 02/2028",
+            "ubicacion": "1CR01-P4",
+            "teorico": 22,
+            "fisico": 22,
+            "estado": "OK",
+            "detalle": "✅ CR000009: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000013",
+            "descripcion": "CLINDAMICINA 1% PROPILENGLICOL 5% (CLINDAMER) TUBO X 20GR (BOOZ) F.V 10/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 35,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000013: Faltan 35 unidades en físico."
+        },
+        {
+            "codigo": "CR000181",
+            "descripcion": "LIDOCAINA 5% USP CREMA X 30GR (BRIXMEDIC) FV. 05/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 74,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000181: Faltan 74 unidades en físico."
+        },
+        {
+            "codigo": "CR000283",
+            "descripcion": "DICLOFENAC DIETILAMINO 1.16% (DENCOFEN GEL) TUBO X 40GR (LABORATORIOS PONCE) FV. 12/2028",
+            "ubicacion": "1CR01-P4",
+            "teorico": 176,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000283: Faltan 176 unidades en físico."
+        }
+    ]
+}

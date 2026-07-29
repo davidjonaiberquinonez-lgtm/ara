@@ -1,0 +1,37 @@
+{
+    "id": "REP-32FDA030",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P1",
+    "fecha": "2026-07-27 08:43:11 AM",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000375",
+            "descripcion": "MUPIROCIN 2% UNG X 15GR (H&M) FV. 05/2027",
+            "ubicacion": "1CR01-P1",
+            "teorico": 176,
+            "fisico": 176,
+            "estado": "OK",
+            "detalle": "✅ CR000375: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000459",
+            "descripcion": "MOMETASONA 0.1% (ELOK) CREMA X 20GR (LIALI) FV. 02/2027",
+            "ubicacion": "1CR01-P1",
+            "teorico": 40,
+            "fisico": 40,
+            "estado": "OK",
+            "detalle": "✅ CR000459: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000542",
+            "descripcion": "CLOTRIMAZOL 1% (GINAZOL) CREMA X 50GR (2N) FV. 04/2027",
+            "ubicacion": "1CR01-P1",
+            "teorico": 12,
+            "fisico": 12,
+            "estado": "OK",
+            "detalle": "✅ CR000542: Verificado al pelo."
+        }
+    ]
+}

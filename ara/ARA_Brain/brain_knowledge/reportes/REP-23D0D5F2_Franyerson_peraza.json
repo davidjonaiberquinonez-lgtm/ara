@@ -1,0 +1,46 @@
+{
+    "id": "REP-23D0D5F2",
+    "usuario": "Franyerson peraza",
+    "estante": "4MDC00-P1",
+    "fecha": "2026-05-13 15:02:56",
+    "total_articulos": 5,
+    "verificados": 4,
+    "detalles": [
+        {
+            "codigo": "MD01587",
+            "descripcion": "CLORURO DE SODIO 6.5MG (FISIOLIN) SOL NASAL X 15ML (OFTALMI) FV. 04/2028                                                ",
+            "ubicacion": "4MDC00-P1",
+            "teorico": 344,
+            "fisico": 344,
+            "estado": "OK",
+            "detalle": "✅ MD01587: Verificado."
+        },
+        {
+            "codigo": "MD02050",
+            "descripcion": "CARVEDILOL 25MG (CURPINOL 25) CJ X 30 COMP (ROWE) FV. 02/2028                                                           ",
+            "ubicacion": "4MDC00-P1",
+            "teorico": 45,
+            "fisico": 44,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: MD02050 (CARVEDILOL 25MG (CURPINOL 25) CJ X 30 COMP (ROWE) FV. 02/2028                                                           ) en 4MDC00-P1. Faltante 1 unidades."
+        },
+        {
+            "codigo": "MD02318",
+            "descripcion": "CLOPIDOGREL 75MG CJ X 30 TAB (ALESS PHARMACEUTICALS) FV. 11/2027                                                        ",
+            "ubicacion": "4MDC00-P1",
+            "teorico": 118,
+            "fisico": 118,
+            "estado": "OK",
+            "detalle": "✅ MD02318: Verificado."
+        },
+        {
+            "codigo": "MD04662",
+            "descripcion": "CITRATO DE SILDENAFIL 100MG (SOSTENGO) CJ X 2 TABL (BIOGLASS) FV. 05/2028                                               ",
+            "ubicacion": "4MDC00-P1",
+            "teorico": 391,
+            "fisico": 391,
+            "estado": "OK",
+            "detalle": "✅ MD04662: Verificado."
+        }
+    ]
+}

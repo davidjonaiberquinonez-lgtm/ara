@@ -1,0 +1,19 @@
+{
+    "id": "REP-4E384E4B",
+    "usuario": "WILBER SILVA",
+    "estante": "6MQ30-P1",
+    "fecha": "2026-06-24 09:15:15 AM",
+    "total_articulos": 1,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "MQ00296",
+            "descripcion": "MACROGOTEROS EN Y (VALEMEDIC) F.V 06/2030",
+            "ubicacion": "6MQ30-P1",
+            "teorico": 316,
+            "fisico": 316,
+            "estado": "OK",
+            "detalle": "✅ MQ00296: Verificado al pelo."
+        }
+    ]
+}

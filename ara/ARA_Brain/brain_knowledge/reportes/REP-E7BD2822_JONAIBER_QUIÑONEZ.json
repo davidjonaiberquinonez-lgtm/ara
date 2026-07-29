@@ -1,0 +1,28 @@
+{
+    "id": "REP-E7BD2822",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P4",
+    "fecha": "2026-06-23 12:44:15 PM",
+    "total_articulos": 2,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000181",
+            "descripcion": "LIDOCAINA 5% USP CREMA X 30GR (BRIXMEDIC) FV. 05/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 201,
+            "fisico": 201,
+            "estado": "OK",
+            "detalle": "✅ CR000181: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000283",
+            "descripcion": "DICLOFENAC DIETILAMINO 1.16% (DENCOFEN GEL) TUBO X 40GR (LABORATORIOS PONCE) FV. 12/2028",
+            "ubicacion": "1CR01-P4",
+            "teorico": 47,
+            "fisico": 47,
+            "estado": "OK",
+            "detalle": "✅ CR000283: Verificado al pelo."
+        }
+    ]
+}

@@ -1,0 +1,37 @@
+{
+    "id": "REP-1F7B288F",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR01-P2",
+    "fecha": "2026-06-10 08:27:50",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000227",
+            "descripcion": "CREMA ANTIMICOTICA (MICODERM) TARRO X 50GR (SOMA) FV.07/2029",
+            "ubicacion": "1CR01-P2",
+            "teorico": 10,
+            "fisico": 13,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000227 (CREMA ANTIMICOTICA (MICODERM) TARRO X 50GR (SOMA) FV.07/2029) en 1CR01-P2. Sobrante 3 unidades."
+        },
+        {
+            "codigo": "CR000237",
+            "descripcion": "ADAPALENO 0.3% (ZUDENINA FORTE) GEL X 30GR (MEDIHEALTH) FV. 09/2029",
+            "ubicacion": "1CR01-P2",
+            "teorico": 12,
+            "fisico": 12,
+            "estado": "OK",
+            "detalle": "✅ CR000237: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000336",
+            "descripcion": "CLOBETASOL 0.05% (CLOBIT) CREMA X 15GR (BIOVENEZUELA) F.V 07/2027",
+            "ubicacion": "1CR01-P2",
+            "teorico": 0,
+            "fisico": 61,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000336 (CLOBETASOL 0.05% (CLOBIT) CREMA X 15GR (BIOVENEZUELA) F.V 07/2027) en 1CR01-P2. Sobrante 61 unidades."
+        }
+    ]
+}

@@ -1,0 +1,19 @@
+{
+    "id": "REP-D0DEC059",
+    "usuario": "REIMER QUIROZ",
+    "estante": "5MISC11-P1",
+    "fecha": "2026-05-15 11:18:46",
+    "total_articulos": 4,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "MISC1227",
+            "descripcion": "KETOCONAZOL 2% (KETOMED) CHAMPU X 100ML (MEDIHEALTH) FV.10/2027                                                         ",
+            "ubicacion": "5MISC11-P1",
+            "teorico": 12,
+            "fisico": 12,
+            "estado": "OK",
+            "detalle": "✅ MISC1227: Verificado."
+        }
+    ]
+}

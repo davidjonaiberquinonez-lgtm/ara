@@ -1,0 +1,37 @@
+{
+    "id": "REP-F938B8C4",
+    "usuario": "EBERTH ESCALONA",
+    "estante": "5MISC20-P3",
+    "fecha": "2026-06-24 08:47:36 AM",
+    "total_articulos": 3,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "MISC0014",
+            "descripcion": "MINOXIDIL 5% SOL TOPICA FRASCO X 60ML (SOTO GLOBAL) FV. 01/2028",
+            "ubicacion": "5MISC20-P3",
+            "teorico": 48,
+            "fisico": 48,
+            "estado": "OK",
+            "detalle": "✅ MISC0014: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0990",
+            "descripcion": "COPA MENSTRUAL TALLA S (PRIMA SALUD)",
+            "ubicacion": "5MISC20-P3",
+            "teorico": 8,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ MISC0990: Faltan 8 unidades en físico."
+        },
+        {
+            "codigo": "MISC1210",
+            "descripcion": "MELATONINA 3MG + VITAMINA B6 10MG + MAGNESIO 100MG (MELATONIN) FRASCO X 30 CAP (VAL) FV. 07/2028",
+            "ubicacion": "5MISC20-P3",
+            "teorico": 34,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ MISC1210: Faltan 34 unidades en físico."
+        }
+    ]
+}

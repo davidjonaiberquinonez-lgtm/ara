@@ -1,0 +1,28 @@
+{
+    "id": "REP-963ADAEF",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR02-P2",
+    "fecha": "2026-06-11 08:15:10",
+    "total_articulos": 3,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000081",
+            "descripcion": "CREMA NUTRITIVA RESTAURADORA PROVIT B5+D-PANTHENOL+COLAGE+Q10+VIT E (BRUCEN) TUBOX80GR (BRUPHARM) FV.04/2028",
+            "ubicacion": "1CR02-P2",
+            "teorico": 27,
+            "fisico": 27,
+            "estado": "OK",
+            "detalle": "✅ CR000081: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000535",
+            "descripcion": "CREMA ANTIMANCHAS PARA MANOS CON PROTECTOR +20SPF/ROSA MOSQUETA TUBO X 75ML (INSTITUTO ESPAÑOL) FV.02/2029",
+            "ubicacion": "1CR02-P2",
+            "teorico": 1,
+            "fisico": 1,
+            "estado": "OK",
+            "detalle": "✅ CR000535: Verificado al pelo."
+        }
+    ]
+}

@@ -1,0 +1,64 @@
+{
+    "id": "REP-9145E769",
+    "usuario": "REIMER QUIROZ",
+    "estante": "5MISC11-P3",
+    "fecha": "2026-07-27 09:18:08 AM",
+    "total_articulos": 6,
+    "verificados": 6,
+    "detalles": [
+        {
+            "codigo": "MISC0544",
+            "descripcion": "PRESERVATIVO SABOR Y AROMA MIX CJ X 5 UND (PRUDENCE) FV. 04/2028",
+            "ubicacion": "5MISC11-P3",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ MISC0544: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0569",
+            "descripcion": "PRESERVATIVO LIBRE DE LATEX CJ X 3 UND (SENSE) FV. 01/2029",
+            "ubicacion": "5MISC11-P3",
+            "teorico": 12,
+            "fisico": 12,
+            "estado": "OK",
+            "detalle": "✅ MISC0569: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0721",
+            "descripcion": "CEPILLO DENTAL INFANTIL EXTRA SUAVE 12M+ (GENIAL) REF: GN-22CX09S",
+            "ubicacion": "5MISC11-P3",
+            "teorico": 30,
+            "fisico": 30,
+            "estado": "OK",
+            "detalle": "✅ MISC0721: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0742",
+            "descripcion": "PRESERVATIVO RETARDANTE CJ X 4 UND (MZONE) FV. 12/2029",
+            "ubicacion": "5MISC11-P3",
+            "teorico": 10,
+            "fisico": 10,
+            "estado": "OK",
+            "detalle": "✅ MISC0742: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0915",
+            "descripcion": "MOUSSE DE LIMPIEZA FACIAL ULTRA GENTIL X 50ML (CLARESS) FV.08/2027",
+            "ubicacion": "5MISC11-P3",
+            "teorico": 1,
+            "fisico": 1,
+            "estado": "OK",
+            "detalle": "✅ MISC0915: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC1298",
+            "descripcion": "ACEITE DE ALMENDRAS FRASCO X 30ML (BIOFARCO) FV. 04/2028",
+            "ubicacion": "5MISC11-P3",
+            "teorico": 139,
+            "fisico": 139,
+            "estado": "OK",
+            "detalle": "✅ MISC1298: Verificado al pelo."
+        }
+    ]
+}

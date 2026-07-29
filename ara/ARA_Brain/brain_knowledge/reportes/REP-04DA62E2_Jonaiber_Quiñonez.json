@@ -1,0 +1,37 @@
+{
+    "id": "REP-04DA62E2",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR03-P5",
+    "fecha": "2026-06-11 08:43:23",
+    "total_articulos": 5,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000488",
+            "descripcion": "SULFADIAZINA DE PLATA 1% (PROTOSULFIL) CREMA X 15GR (ROWE) FV. 04/2029",
+            "ubicacion": "1CR03-P5",
+            "teorico": 3,
+            "fisico": 3,
+            "estado": "OK",
+            "detalle": "✅ CR000488: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000019",
+            "descripcion": "BACITRACINA 500 UI UNGUENTO X 15GR (SOTO GLOBAL GROUP) FV. 06/2027",
+            "ubicacion": "1CR03-P5",
+            "teorico": 17,
+            "fisico": 17,
+            "estado": "OK",
+            "detalle": "✅ CR000019: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000509",
+            "descripcion": "LOCION CORP CON ALBARICOQUE+VIT.E (SERUM CORPORAL/PIEL NORMAL) X 400GR (DG GODAN) FV.07/2029",
+            "ubicacion": "1CR03-P5",
+            "teorico": 3,
+            "fisico": 3,
+            "estado": "OK",
+            "detalle": "✅ CR000509: Verificado al pelo."
+        }
+    ]
+}

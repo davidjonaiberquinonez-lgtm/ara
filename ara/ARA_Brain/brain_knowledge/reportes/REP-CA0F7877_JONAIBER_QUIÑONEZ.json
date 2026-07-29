@@ -1,0 +1,19 @@
+{
+    "id": "REP-CA0F7877",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR04-P1",
+    "fecha": "2026-05-12 00:07:38",
+    "total_articulos": 3,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "CR000077",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 50GR C/5 APLICADORES (TIARES) FV. 11/2027                                                ",
+            "ubicacion": "1CR04-P1",
+            "teorico": 221,
+            "fisico": 221,
+            "estado": "OK",
+            "detalle": "✅ CR000077: Verificado."
+        }
+    ]
+}

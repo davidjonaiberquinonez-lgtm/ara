@@ -1,0 +1,55 @@
+{
+    "id": "REP-1901EE4E",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P8",
+    "fecha": "2026-06-29 09:24:38 AM",
+    "total_articulos": 5,
+    "verificados": 4,
+    "detalles": [
+        {
+            "codigo": "CR000008",
+            "descripcion": "GENTAMICINA 0.1% (GENTAMICIS) CREMA X 20GR (BOOZ) F.V 04/2028",
+            "ubicacion": "1CR01-P8",
+            "teorico": 48,
+            "fisico": 48,
+            "estado": "OK",
+            "detalle": "✅ CR000008: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000226",
+            "descripcion": "POMADA ALCANFORADA (DOLMAX) TARRO X 50GR (SOMA) FV. 07/2028",
+            "ubicacion": "1CR01-P8",
+            "teorico": 17,
+            "fisico": 17,
+            "estado": "OK",
+            "detalle": "✅ CR000226: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000381",
+            "descripcion": "DICLOFENAC SODICO 1% (DIFENAC) GEL X 30GR (DOLLDER) FV. 05/2027",
+            "ubicacion": "1CR01-P8",
+            "teorico": 28,
+            "fisico": 28,
+            "estado": "OK",
+            "detalle": "✅ CR000381: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000433",
+            "descripcion": "CENTELLA ASIATICA 1% (LITONATE) CREMA X 15GR (BIOTECH) FV. 03/2027",
+            "ubicacion": "1CR01-P8",
+            "teorico": 2,
+            "fisico": 2,
+            "estado": "OK",
+            "detalle": "✅ CR000433: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000503",
+            "descripcion": "BETAMETASONA 0.05% (BETADERM) CREMA TOPICA X 15GR (BIOTECH) FV.09/2027",
+            "ubicacion": "1CR01-P8",
+            "teorico": 100,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000503: Faltan 100 unidades en físico."
+        }
+    ]
+}

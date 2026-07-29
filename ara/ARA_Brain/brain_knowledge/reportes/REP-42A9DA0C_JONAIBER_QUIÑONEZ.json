@@ -1,0 +1,55 @@
+{
+    "id": "REP-42A9DA0C",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P5",
+    "fecha": "2026-06-29 09:18:46 AM",
+    "total_articulos": 5,
+    "verificados": 5,
+    "detalles": [
+        {
+            "codigo": "CR000173",
+            "descripcion": "ISOTIPENDILO 0.75GR (ANDANTOL) JALEA X 20GR (VARGAS) FV. 07/2027",
+            "ubicacion": "1CR01-P5",
+            "teorico": 22,
+            "fisico": 22,
+            "estado": "OK",
+            "detalle": "✅ CR000173: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000276",
+            "descripcion": "CLOBETASOL 0.5MG CREMA X 30GR (KMPLUS) FV. 02/2028",
+            "ubicacion": "1CR01-P5",
+            "teorico": 20,
+            "fisico": 20,
+            "estado": "OK",
+            "detalle": "✅ CR000276: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000386",
+            "descripcion": "CLOTRIMAZOL 1% (FUGOLIN) CREMA TOPICA X 20GR (VINCENTI) FV. 07/2027",
+            "ubicacion": "1CR01-P5",
+            "teorico": 20,
+            "fisico": 20,
+            "estado": "OK",
+            "detalle": "✅ CR000386: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000410",
+            "descripcion": "DICLOFENAC DIETILAMINO 1.16% (DIANALPER) GEL X 30GR (PHARMETIQUE) FV. 03/2027",
+            "ubicacion": "1CR01-P5",
+            "teorico": 6,
+            "fisico": 6,
+            "estado": "OK",
+            "detalle": "✅ CR000410: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000540",
+            "descripcion": "BETAMETASONA 0.05% TUBO X 20G (AG MEDICAMENTOS) FV. 11/2026",
+            "ubicacion": "1CR01-P5",
+            "teorico": 1,
+            "fisico": 1,
+            "estado": "OK",
+            "detalle": "✅ CR000540: Verificado al pelo."
+        }
+    ]
+}

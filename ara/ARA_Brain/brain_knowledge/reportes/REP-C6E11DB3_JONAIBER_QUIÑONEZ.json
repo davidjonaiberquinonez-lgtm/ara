@@ -1,0 +1,37 @@
+{
+    "id": "REP-C6E11DB3",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P9",
+    "fecha": "2026-05-15 11:08:34",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000101",
+            "descripcion": "GEL CREMA ANTI ACNE  (BRUCEN) PASO 3 TUBO X 20GR (BRUPHARM) FV. 10/2027                                                 ",
+            "ubicacion": "1CR01-P9",
+            "teorico": 5,
+            "fisico": 5,
+            "estado": "OK",
+            "detalle": "✅ CR000101: Verificado."
+        },
+        {
+            "codigo": "CR000518",
+            "descripcion": "MUPIROCINA USP 2% (MUPROSKIN) UNGUENTO X 15G (TIARES) FV. 04/2027                                                       ",
+            "ubicacion": "1CR01-P9",
+            "teorico": 61,
+            "fisico": 61,
+            "estado": "OK",
+            "detalle": "✅ CR000518: Verificado."
+        },
+        {
+            "codigo": "CR000559",
+            "descripcion": "SULFADIAZINA DE PLATA 1% (QUEMADERM) CREMA X 30GR (2N) FV. 09/2028                                                      ",
+            "ubicacion": "1CR01-P9",
+            "teorico": 148,
+            "fisico": 148,
+            "estado": "OK",
+            "detalle": "✅ CR000559: Verificado."
+        }
+    ]
+}

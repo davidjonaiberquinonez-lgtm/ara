@@ -1,0 +1,37 @@
+{
+    "id": "REP-69F38854",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR01-P1",
+    "fecha": "2026-06-10 08:26:51",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000333",
+            "descripcion": "KETOCONAZOL 2% (HIDROPIEL) CREMA X 30GR (BIOESTERIL) FV. 08/2026",
+            "ubicacion": "1CR01-P1",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000333: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000459",
+            "descripcion": "MOMETASONA 0.1% (ELOK) CREMA X 20GR (LIALI) FV. 02/2027",
+            "ubicacion": "1CR01-P1",
+            "teorico": 31,
+            "fisico": 26,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000459 (MOMETASONA 0.1% (ELOK) CREMA X 20GR (LIALI) FV. 02/2027) en 1CR01-P1. Faltante 5 unidades."
+        },
+        {
+            "codigo": "CR000542",
+            "descripcion": "CLOTRIMAZOL 1% (GINAZOL) CREMA X 50GR (2N) FV. 04/2027",
+            "ubicacion": "1CR01-P1",
+            "teorico": 58,
+            "fisico": 31,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000542 (CLOTRIMAZOL 1% (GINAZOL) CREMA X 50GR (2N) FV. 04/2027) en 1CR01-P1. Faltante 27 unidades."
+        }
+    ]
+}

@@ -1,0 +1,46 @@
+{
+    "id": "REP-C9216214",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P6",
+    "fecha": "2026-06-29 09:21:05 AM",
+    "total_articulos": 4,
+    "verificados": 4,
+    "detalles": [
+        {
+            "codigo": "CR000001",
+            "descripcion": "MOXIFLOXACINA 8MG (BACTROCIS) CREMA X 20GR (BOOZ) F.V 02/2027",
+            "ubicacion": "1CR01-P6",
+            "teorico": 16,
+            "fisico": 16,
+            "estado": "OK",
+            "detalle": "✅ CR000001: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000083",
+            "descripcion": "CREMA CORPORAL EMOLIENTE SYNDET UREA 12% (BRUCEN PSO-SKIN) FRASCO X 250ML (BRUPHARM) FV. 02/2028",
+            "ubicacion": "1CR01-P6",
+            "teorico": 11,
+            "fisico": 11,
+            "estado": "OK",
+            "detalle": "✅ CR000083: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000286",
+            "descripcion": "TACROLIMUS 0.1% (CROMUS) UNG DERMICO X 15GR (VIVAX) FV. 11/2027",
+            "ubicacion": "1CR01-P6",
+            "teorico": 1,
+            "fisico": 1,
+            "estado": "OK",
+            "detalle": "✅ CR000286: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000412",
+            "descripcion": "BETAMETASONA 0.1% (ITISONA) CREMA X 30 GRS (PHARMETIQUE) FV. 02/2027",
+            "ubicacion": "1CR01-P6",
+            "teorico": 24,
+            "fisico": 24,
+            "estado": "OK",
+            "detalle": "✅ CR000412: Verificado al pelo."
+        }
+    ]
+}

@@ -1,0 +1,28 @@
+{
+    "id": "REP-EBD9718B",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR02-P5",
+    "fecha": "2026-06-11 08:26:31",
+    "total_articulos": 2,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000250",
+            "descripcion": "DICLOFENACO (DICLO GEL) GEL X 50GR (UNIPHARMA) FV. 04/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 74,
+            "fisico": 84,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000250 (DICLOFENACO (DICLO GEL) GEL X 50GR (UNIPHARMA) FV. 04/2027) en 1CR02-P5. Sobrante 10 unidades."
+        },
+        {
+            "codigo": "CR000434",
+            "descripcion": "KETOPROFENO 2.5% GEL X 50GR (DISTRILAB) FV. 11/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 18,
+            "fisico": 18,
+            "estado": "OK",
+            "detalle": "✅ CR000434: Verificado al pelo."
+        }
+    ]
+}

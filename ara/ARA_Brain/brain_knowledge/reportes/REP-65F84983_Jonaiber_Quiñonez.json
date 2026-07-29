@@ -1,0 +1,19 @@
+{
+    "id": "REP-65F84983",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR01-P0",
+    "fecha": "2026-05-13 15:04:05",
+    "total_articulos": 2,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "CR000375",
+            "descripcion": "MUPIROCIN 2% UNG X 15GR (H&M) FV. 05/2027                                                                               ",
+            "ubicacion": "1CR01-P0",
+            "teorico": 250,
+            "fisico": 250,
+            "estado": "OK",
+            "detalle": "✅ CR000375: Verificado."
+        }
+    ]
+}

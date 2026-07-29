@@ -1,0 +1,37 @@
+{
+    "id": "REP-BBACCDF9",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR01-P3",
+    "fecha": "2026-06-10 08:29:35",
+    "total_articulos": 4,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000168",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 30GR (ARTE MEDICO) FV. 08/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 60,
+            "fisico": 60,
+            "estado": "OK",
+            "detalle": "✅ CR000168: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000424",
+            "descripcion": "ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 7,
+            "fisico": 6,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000424 (ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027) en 1CR01-P3. Faltante 1 unidades."
+        },
+        {
+            "codigo": "CR000521",
+            "descripcion": "LIDOCAINA  2% GEL X 35G (TIARES) FV. 04/2028",
+            "ubicacion": "1CR01-P3",
+            "teorico": 0,
+            "fisico": 29,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000521 (LIDOCAINA  2% GEL X 35G (TIARES) FV. 04/2028) en 1CR01-P3. Sobrante 29 unidades."
+        }
+    ]
+}

@@ -1,0 +1,37 @@
+{
+    "id": "REP-CC2162F3",
+    "usuario": "REIMER QUIROZ",
+    "estante": "5MISC11-P2",
+    "fecha": "2026-07-27 09:08:06 AM",
+    "total_articulos": 3,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "MISC0349",
+            "descripcion": "PRESERVATIVO TEXTURIZADO CJ X 3 UND (SENSE) FV 07/2027",
+            "ubicacion": "5MISC11-P2",
+            "teorico": 27,
+            "fisico": 27,
+            "estado": "OK",
+            "detalle": "✅ MISC0349: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC1123",
+            "descripcion": "PRESERVATIVO TEXTURIZADO CJ X 4 UND (MZONE) FV. 12/2029",
+            "ubicacion": "5MISC11-P2",
+            "teorico": 20,
+            "fisico": 20,
+            "estado": "OK",
+            "detalle": "✅ MISC1123: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC1615",
+            "descripcion": "VASELINA FRASCO X 25GR (BIOFARCO) FV.04/2029",
+            "ubicacion": "5MISC11-P2",
+            "teorico": 3,
+            "fisico": 6,
+            "estado": "SOBRA",
+            "detalle": "🔥 MISC1615: Sobran 3 unidades en estante."
+        }
+    ]
+}

@@ -1,0 +1,64 @@
+{
+    "id": "REP-B6F6F11E",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P3",
+    "fecha": "2026-05-11 23:41:57",
+    "total_articulos": 4,
+    "verificados": 6,
+    "detalles": [
+        {
+            "codigo": "CR000168",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 30GR (ARTE MEDICO) FV. 08/2027                                                           ",
+            "ubicacion": "1CR01-P3",
+            "teorico": 20,
+            "fisico": 20,
+            "estado": "OK",
+            "detalle": "✅ CR000168: Verificado."
+        },
+        {
+            "codigo": "CR000424",
+            "descripcion": "ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027                                                                    ",
+            "ubicacion": "1CR01-P3",
+            "teorico": 13,
+            "fisico": 20,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000424 (ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027                                                                    ) en 1CR01-P3. Sobrante 7 unidades."
+        },
+        {
+            "codigo": "CR000486",
+            "descripcion": "VITAMINA C 10% (CEVITMER) CREMA X 40GR (BOOZ) FV. 08/2027                                                               ",
+            "ubicacion": "1CR01-P3",
+            "teorico": 7,
+            "fisico": 20,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000486 (VITAMINA C 10% (CEVITMER) CREMA X 40GR (BOOZ) FV. 08/2027                                                               ) en 1CR01-P3. Sobrante 13 unidades."
+        },
+        {
+            "codigo": "CR000424",
+            "descripcion": "ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027                                                                    ",
+            "ubicacion": "1CR01-P3",
+            "teorico": 13,
+            "fisico": 13,
+            "estado": "OK",
+            "detalle": "✅ CR000424: Verificado."
+        },
+        {
+            "codigo": "CR000486",
+            "descripcion": "VITAMINA C 10% (CEVITMER) CREMA X 40GR (BOOZ) FV. 08/2027                                                               ",
+            "ubicacion": "1CR01-P3",
+            "teorico": 7,
+            "fisico": 7,
+            "estado": "OK",
+            "detalle": "✅ CR000486: Verificado."
+        },
+        {
+            "codigo": "CR000521",
+            "descripcion": "LIDOCAINA  2% GEL X 35G (TIARES) FV. 04/2028                                                                            ",
+            "ubicacion": "1CR01-P3",
+            "teorico": 113,
+            "fisico": 113,
+            "estado": "OK",
+            "detalle": "✅ CR000521: Verificado."
+        }
+    ]
+}

@@ -1,0 +1,55 @@
+{
+    "id": "REP-EC80B6F3",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P2",
+    "fecha": "2026-07-27 08:46:07 AM",
+    "total_articulos": 5,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000227",
+            "descripcion": "CREMA ANTIMICOTICA (MICODERM) TARRO X 50GR (SOMA) FV.07/2029",
+            "ubicacion": "1CR01-P2",
+            "teorico": 26,
+            "fisico": 26,
+            "estado": "OK",
+            "detalle": "✅ CR000227: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000229",
+            "descripcion": "METRONIDAZOL 15% + MICONAZOL 4% (DYNAZOL FORTE) CREMA X 40GR C/7 APLICADORES (DISTRILAB) FV. 09/2028",
+            "ubicacion": "1CR01-P2",
+            "teorico": 23,
+            "fisico": 23,
+            "estado": "OK",
+            "detalle": "✅ CR000229: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000237",
+            "descripcion": "ADAPALENO 0.3% (ZUDENINA FORTE) GEL X 30GR (MEDIHEALTH) FV. 09/2029",
+            "ubicacion": "1CR01-P2",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000237: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000432",
+            "descripcion": "ALCANFOR + EUCALIPTO + MENTOL + SAL. DE METILO + ARNICA (DENCORUB ICE ARNICA) GEL X 40GR (PONCE & BENZO) FV. 07/28",
+            "ubicacion": "1CR01-P2",
+            "teorico": 181,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000432: Faltan 181 unidades en físico."
+        },
+        {
+            "codigo": "CR000486",
+            "descripcion": "VITAMINA C 10% (CEVITMER) CREMA X 40GR (BOOZ) FV. 04/2028",
+            "ubicacion": "1CR01-P2",
+            "teorico": 3,
+            "fisico": 0,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000486: Faltan 3 unidades en físico."
+        }
+    ]
+}

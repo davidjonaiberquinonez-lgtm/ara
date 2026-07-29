@@ -1,0 +1,64 @@
+{
+    "id": "REP-10CB427C",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P7",
+    "fecha": "2026-06-15 03:37:30 PM",
+    "total_articulos": 6,
+    "verificados": 6,
+    "detalles": [
+        {
+            "codigo": "CR000162",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P7",
+            "teorico": 18,
+            "fisico": 18,
+            "estado": "OK",
+            "detalle": "✅ CR000162: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000199",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P7",
+            "teorico": 18,
+            "fisico": 18,
+            "estado": "OK",
+            "detalle": "✅ CR000199: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000201",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P7",
+            "teorico": 24,
+            "fisico": 24,
+            "estado": "OK",
+            "detalle": "✅ CR000201: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000333",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P7",
+            "teorico": 16,
+            "fisico": 16,
+            "estado": "OK",
+            "detalle": "✅ CR000333: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000333C",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P7",
+            "teorico": 6,
+            "fisico": 6,
+            "estado": "OK",
+            "detalle": "✅ CR000333C: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000437",
+            "descripcion": "Descripción automática del producto",
+            "ubicacion": "1CR01-P7",
+            "teorico": 11,
+            "fisico": 11,
+            "estado": "OK",
+            "detalle": "✅ CR000437: Verificado al pelo."
+        }
+    ]
+}

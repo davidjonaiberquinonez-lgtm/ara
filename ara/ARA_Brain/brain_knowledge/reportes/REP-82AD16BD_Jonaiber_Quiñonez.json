@@ -1,0 +1,28 @@
+{
+    "id": "REP-82AD16BD",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR02-P4",
+    "fecha": "2026-06-11 08:22:44",
+    "total_articulos": 3,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000167",
+            "descripcion": "BETAMETASONA + CLOTRIMAZOL + NEOMICINA CREMA TOPICA X 15GR (ARTE MEDICO) FV. 08/2027",
+            "ubicacion": "1CR02-P4",
+            "teorico": 29,
+            "fisico": 29,
+            "estado": "OK",
+            "detalle": "✅ CR000167: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000204",
+            "descripcion": "LIDOCAINA 5%  GEL X 30GR (H&M) FV. 05/2027",
+            "ubicacion": "1CR02-P4",
+            "teorico": 99,
+            "fisico": 99,
+            "estado": "OK",
+            "detalle": "✅ CR000204: Verificado al pelo."
+        }
+    ]
+}

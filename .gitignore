@@ -31,3 +31,7 @@ __pycache__/
 # Archivos temporales del sistema
 Thumbs.db
 .DS_Store
+
+# Node modules (WhatsApp bot)
+node_modules/
+ara/ARA_Brain/whatsapp/node_modules/

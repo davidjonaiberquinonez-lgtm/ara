@@ -1,0 +1,46 @@
+{
+    "id": "REP-F45622F7",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR02-P6",
+    "fecha": "2026-06-11 08:34:27",
+    "total_articulos": 4,
+    "verificados": 4,
+    "detalles": [
+        {
+            "codigo": "CR000341",
+            "descripcion": "NISTATINA 100.000UI CREMA X 15GR (HUMAN BIOSCIENCE) FV. 10/2026",
+            "ubicacion": "1CR02-P6",
+            "teorico": 1,
+            "fisico": 0,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000341 (NISTATINA 100.000UI CREMA X 15GR (HUMAN BIOSCIENCE) FV. 10/2026) en 1CR02-P6. Faltante 1 unidades."
+        },
+        {
+            "codigo": "CR000360",
+            "descripcion": "CLOTRIMAZOL 200MG OVULOS + CLOTRIMAZOL 1% (DYMAZOL DUAL) CREMA VAGINAL X 20GR (DISTRILAB) FV. 01/2027",
+            "ubicacion": "1CR02-P6",
+            "teorico": 33,
+            "fisico": 33,
+            "estado": "OK",
+            "detalle": "✅ CR000360: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000416",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 40GR C/7 APLICADORES (CALOX) FV. 09/2027",
+            "ubicacion": "1CR02-P6",
+            "teorico": 15,
+            "fisico": 15,
+            "estado": "OK",
+            "detalle": "✅ CR000416: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000274",
+            "descripcion": "BETAMETASONA + CLOTRIMAZOL + GENTAMICINA (TRIDERMARON) CREMA X 15GR (UNIPHARMA) FV. 04/2027",
+            "ubicacion": "1CR02-P6",
+            "teorico": 28,
+            "fisico": 30,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000274 (BETAMETASONA + CLOTRIMAZOL + GENTAMICINA (TRIDERMARON) CREMA X 15GR (UNIPHARMA) FV. 04/2027) en 1CR02-P6. Sobrante 2 unidades."
+        }
+    ]
+}

@@ -1,0 +1,19 @@
+{
+    "id": "REP-39BED3ED",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "6MQ30-P1",
+    "fecha": "2026-06-23 12:55:55 PM",
+    "total_articulos": 1,
+    "verificados": 1,
+    "detalles": [
+        {
+            "codigo": "MQ00296",
+            "descripcion": "MACROGOTEROS EN Y (VALEMEDIC) F.V 06/2030",
+            "ubicacion": "6MQ30-P1",
+            "teorico": 73,
+            "fisico": 73,
+            "estado": "OK",
+            "detalle": "✅ MQ00296: Verificado al pelo."
+        }
+    ]
+}

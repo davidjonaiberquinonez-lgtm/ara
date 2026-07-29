@@ -1,0 +1,28 @@
+{
+    "id": "REP-B59659E2",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR01-P5",
+    "fecha": "2026-06-10 08:36:10",
+    "total_articulos": 3,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000173",
+            "descripcion": "ISOTIPENDILO 0.75GR (ANDANTOL) JALEA X 20GR (VARGAS) FV. 07/2027",
+            "ubicacion": "1CR01-P5",
+            "teorico": 34,
+            "fisico": 36,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000173 (ISOTIPENDILO 0.75GR (ANDANTOL) JALEA X 20GR (VARGAS) FV. 07/2027) en 1CR01-P5. Sobrante 2 unidades."
+        },
+        {
+            "codigo": "CR000386",
+            "descripcion": "CLOTRIMAZOL 1% (FUGOLIN) CREMA TOPICA X 20GR (VINCENTI) FV. 07/2027",
+            "ubicacion": "1CR01-P5",
+            "teorico": 28,
+            "fisico": 49,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000386 (CLOTRIMAZOL 1% (FUGOLIN) CREMA TOPICA X 20GR (VINCENTI) FV. 07/2027) en 1CR01-P5. Sobrante 21 unidades."
+        }
+    ]
+}

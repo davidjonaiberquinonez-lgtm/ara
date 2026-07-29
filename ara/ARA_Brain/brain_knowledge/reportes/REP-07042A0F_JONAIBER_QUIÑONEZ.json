@@ -1,0 +1,37 @@
+{
+    "id": "REP-07042A0F",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P4",
+    "fecha": "2026-06-29 09:17:18 AM",
+    "total_articulos": 3,
+    "verificados": 2,
+    "detalles": [
+        {
+            "codigo": "CR000013",
+            "descripcion": "CLINDAMICINA 1% PROPILENGLICOL 5% (CLINDAMER) TUBO X 20GR (BOOZ) F.V 10/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 28,
+            "fisico": 28,
+            "estado": "OK",
+            "detalle": "✅ CR000013: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000181",
+            "descripcion": "LIDOCAINA 5% USP CREMA X 30GR (BRIXMEDIC) FV. 05/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 119,
+            "fisico": 118,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000181: Faltan 1 unidades en físico."
+        },
+        {
+            "codigo": "CR000283",
+            "descripcion": "DICLOFENAC DIETILAMINO 1.16% (DENCOFEN GEL) TUBO X 40GR (LABORATORIOS PONCE) FV. 12/2028",
+            "ubicacion": "1CR01-P4",
+            "teorico": 141,
+            "fisico": 141,
+            "estado": "OK",
+            "detalle": "✅ CR000283: Verificado al pelo."
+        }
+    ]
+}

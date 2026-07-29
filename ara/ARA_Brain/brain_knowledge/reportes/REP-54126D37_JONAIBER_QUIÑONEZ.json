@@ -1,0 +1,55 @@
+{
+    "id": "REP-54126D37",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P3",
+    "fecha": "2026-07-27 08:48:06 AM",
+    "total_articulos": 5,
+    "verificados": 5,
+    "detalles": [
+        {
+            "codigo": "CR000028",
+            "descripcion": "ACICLOVIR 3% UNG OFT X 4.5GR (DISTRILAB) FV. 09/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000028: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000168",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 30GR (ARTE MEDICO) FV. 08/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 43,
+            "fisico": 43,
+            "estado": "OK",
+            "detalle": "✅ CR000168: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000424",
+            "descripcion": "ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000424: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000521",
+            "descripcion": "LIDOCAINA  2% GEL X 35G (TIARES) FV. 04/2028",
+            "ubicacion": "1CR01-P3",
+            "teorico": 56,
+            "fisico": 56,
+            "estado": "OK",
+            "detalle": "✅ CR000521: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000535",
+            "descripcion": "CREMA ANTIMANCHAS PARA MANOS CON PROTECTOR +20SPF/ROSA MOSQUETA TUBO X 75ML (INSTITUTO ESPAÑOL) FV.02/2029",
+            "ubicacion": "1CR01-P3",
+            "teorico": 1,
+            "fisico": 1,
+            "estado": "OK",
+            "detalle": "✅ CR000535: Verificado al pelo."
+        }
+    ]
+}

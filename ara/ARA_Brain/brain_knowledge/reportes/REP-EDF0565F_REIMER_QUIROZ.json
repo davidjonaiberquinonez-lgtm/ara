@@ -1,0 +1,37 @@
+{
+    "id": "REP-EDF0565F",
+    "usuario": "REIMER QUIROZ",
+    "estante": "5MISC11-P4",
+    "fecha": "2026-07-27 09:30:16 AM",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "MISC0733",
+            "descripcion": "PRESERVATIVO ESTIMULANTE SABOR A FRAMBUESA (+ SEX) CJ X 3 UND FV. 02/2027",
+            "ubicacion": "5MISC11-P4",
+            "teorico": 7,
+            "fisico": 7,
+            "estado": "OK",
+            "detalle": "✅ MISC0733: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC1323",
+            "descripcion": "NAD 250MG + SEMILLA UVA 125MG + RESVERATROL 75MG (RESVERANAD) 450MG FRASCO X 60CAPS (BIOINFINITY) FV. 04/2029",
+            "ubicacion": "5MISC11-P4",
+            "teorico": 10,
+            "fisico": 10,
+            "estado": "OK",
+            "detalle": "✅ MISC1323: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC1379",
+            "descripcion": "CASTAÑO DE INDIAS 400MG FRASCO X 60 CAPS (BIONECTAR) FV. 08/2027",
+            "ubicacion": "5MISC11-P4",
+            "teorico": 52,
+            "fisico": 52,
+            "estado": "OK",
+            "detalle": "✅ MISC1379: Verificado al pelo."
+        }
+    ]
+}

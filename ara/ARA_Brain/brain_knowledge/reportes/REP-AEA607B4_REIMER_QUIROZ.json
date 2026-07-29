@@ -1,0 +1,55 @@
+{
+    "id": "REP-AEA607B4",
+    "usuario": "REIMER QUIROZ",
+    "estante": "5MISC11-P1",
+    "fecha": "2026-07-27 08:54:21 AM",
+    "total_articulos": 5,
+    "verificados": 5,
+    "detalles": [
+        {
+            "codigo": "MISC0295",
+            "descripcion": "CITRATO DE MAGNESIO 500MG FRASCO X 60 CAPS (HERBAPLANT) FV. 05/2029",
+            "ubicacion": "5MISC11-P1",
+            "teorico": 31,
+            "fisico": 31,
+            "estado": "OK",
+            "detalle": "✅ MISC0295: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0441",
+            "descripcion": "PROTECTOR SOLAR SPF 50+ (SUN CARE) CREMA X 160GR (DERNIER) FV. 04/2027",
+            "ubicacion": "5MISC11-P1",
+            "teorico": 12,
+            "fisico": 12,
+            "estado": "OK",
+            "detalle": "✅ MISC0441: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0480",
+            "descripcion": "CITRATO DE POTASIO AL 10% FRASCO X 500ML (BIOFARCO) FV. 10/2028",
+            "ubicacion": "5MISC11-P1",
+            "teorico": 45,
+            "fisico": 45,
+            "estado": "OK",
+            "detalle": "✅ MISC0480: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC0865",
+            "descripcion": "COLA DE CABALLO 300MG FRASCO X 60 CAPS (NATURAL PREMIUM) FV. 02/2028",
+            "ubicacion": "5MISC11-P1",
+            "teorico": 18,
+            "fisico": 18,
+            "estado": "OK",
+            "detalle": "✅ MISC0865: Verificado al pelo."
+        },
+        {
+            "codigo": "MISC1227",
+            "descripcion": "KETOCONAZOL 2% (KETOMED) CHAMPU X 100ML (MEDIHEALTH) FV.10/2027",
+            "ubicacion": "5MISC11-P1",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ MISC1227: Verificado al pelo."
+        }
+    ]
+}

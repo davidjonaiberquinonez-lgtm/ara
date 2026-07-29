@@ -1,0 +1,46 @@
+{
+    "id": "REP-C67CB50B",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR02-P3",
+    "fecha": "2026-06-11 08:21:11",
+    "total_articulos": 4,
+    "verificados": 4,
+    "detalles": [
+        {
+            "codigo": "CR000096",
+            "descripcion": "CREMA CORPORAL (SOFT MILK) TARRO X 400ML (NIVEA) FV. 07/2027",
+            "ubicacion": "1CR02-P3",
+            "teorico": 33,
+            "fisico": 33,
+            "estado": "OK",
+            "detalle": "✅ CR000096: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000223",
+            "descripcion": "CLOT 1GR + DEXA 0.04GR + NEOM 0.5GR (DERMASKIN) CREMA X 40GR (MEDIC BRAND) FV. 07/2027",
+            "ubicacion": "1CR02-P3",
+            "teorico": 13,
+            "fisico": 17,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000223 (CLOT 1GR + DEXA 0.04GR + NEOM 0.5GR (DERMASKIN) CREMA X 40GR (MEDIC BRAND) FV. 07/2027) en 1CR02-P3. Sobrante 4 unidades."
+        },
+        {
+            "codigo": "CR000223C",
+            "descripcion": "CLOT 1GR + DEXA 0.04GR + NEOM 0.5GR (DERMASKIN) CREMA X 40GR (MEDIC BRAND) FV. 07/2027",
+            "ubicacion": "1CR02-P3",
+            "teorico": 3,
+            "fisico": 3,
+            "estado": "OK",
+            "detalle": "✅ CR000223C: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000278",
+            "descripcion": "PANTENOL + VITAMINA A + VITAMINA D (VITENOL) CREMA X 15GR (PONCE & BENZO) FV. 10/2028",
+            "ubicacion": "1CR02-P3",
+            "teorico": 223,
+            "fisico": 219,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000278 (PANTENOL + VITAMINA A + VITAMINA D (VITENOL) CREMA X 15GR (PONCE & BENZO) FV. 10/2028) en 1CR02-P3. Faltante 4 unidades."
+        }
+    ]
+}

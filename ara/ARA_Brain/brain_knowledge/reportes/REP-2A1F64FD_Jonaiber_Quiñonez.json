@@ -1,0 +1,37 @@
+{
+    "id": "REP-2A1F64FD",
+    "usuario": "Jonaiber Quiñonez",
+    "estante": "1CR01-P4",
+    "fecha": "2026-06-10 08:34:29",
+    "total_articulos": 4,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000028",
+            "descripcion": "ACICLOVIR 3% UNG OFT X 4.5GR (DISTRILAB) FV. 09/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 5,
+            "fisico": 11,
+            "estado": "NOVEDAD",
+            "detalle": "⚠️ NOVEDAD: CR000028 (ACICLOVIR 3% UNG OFT X 4.5GR (DISTRILAB) FV. 09/2027) en 1CR01-P4. Sobrante 6 unidades."
+        },
+        {
+            "codigo": "CR000181",
+            "descripcion": "LIDOCAINA 5% USP CREMA X 30GR (BRIXMEDIC) FV. 05/2027",
+            "ubicacion": "1CR01-P4",
+            "teorico": 233,
+            "fisico": 206,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000181 (LIDOCAINA 5% USP CREMA X 30GR (BRIXMEDIC) FV. 05/2027) en 1CR01-P4. Faltante 27 unidades."
+        },
+        {
+            "codigo": "CR000283",
+            "descripcion": "DICLOFENAC DIETILAMINO 1.16% (DENCOFEN GEL) TUBO X 40GR (LABORATORIOS PONCE) FV. 12/2028",
+            "ubicacion": "1CR01-P4",
+            "teorico": 75,
+            "fisico": 50,
+            "estado": "NOVEDAD",
+            "detalle": "❌ NOVEDAD: CR000283 (DICLOFENAC DIETILAMINO 1.16% (DENCOFEN GEL) TUBO X 40GR (LABORATORIOS PONCE) FV. 12/2028) en 1CR01-P4. Faltante 25 unidades."
+        }
+    ]
+}

@@ -1,0 +1,30 @@
+{
+    "reporte_id": "REP-JONAIBER QUIÑONEZ-20260614_233123",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante_auditado": "1CR01-P3",
+    "fecha": "2026-06-14",
+    "hora": "11:31:23 PM",
+    "total_items": 5,
+    "detalles": [
+        {
+            "codigo": "CR000028",
+            "cantidad": 0
+        },
+        {
+            "codigo": "CR000168",
+            "cantidad": 0
+        },
+        {
+            "codigo": "CR000424",
+            "cantidad": 0
+        },
+        {
+            "codigo": "CR000521",
+            "cantidad": 0
+        },
+        {
+            "codigo": "CR000535",
+            "cantidad": 0
+        }
+    ]
+}

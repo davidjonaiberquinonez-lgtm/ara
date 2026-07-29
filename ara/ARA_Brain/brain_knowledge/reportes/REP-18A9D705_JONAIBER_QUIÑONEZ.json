@@ -1,0 +1,46 @@
+{
+    "id": "REP-18A9D705",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P3",
+    "fecha": "2026-06-29 09:12:23 AM",
+    "total_articulos": 4,
+    "verificados": 4,
+    "detalles": [
+        {
+            "codigo": "CR000028",
+            "descripcion": "ACICLOVIR 3% UNG OFT X 4.5GR (DISTRILAB) FV. 09/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 10,
+            "fisico": 10,
+            "estado": "OK",
+            "detalle": "✅ CR000028: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000168",
+            "descripcion": "CLOTRIMAZOL 1% CREMA VAGINAL X 30GR (ARTE MEDICO) FV. 08/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 54,
+            "fisico": 54,
+            "estado": "OK",
+            "detalle": "✅ CR000168: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000424",
+            "descripcion": "ACICLOVIR 5% CREMA TOPICA X 10GR (CALOX) FV. 06/2027",
+            "ubicacion": "1CR01-P3",
+            "teorico": 3,
+            "fisico": 3,
+            "estado": "OK",
+            "detalle": "✅ CR000424: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000521",
+            "descripcion": "LIDOCAINA  2% GEL X 35G (TIARES) FV. 04/2028",
+            "ubicacion": "1CR01-P3",
+            "teorico": 8,
+            "fisico": 8,
+            "estado": "OK",
+            "detalle": "✅ CR000521: Verificado al pelo."
+        }
+    ]
+}

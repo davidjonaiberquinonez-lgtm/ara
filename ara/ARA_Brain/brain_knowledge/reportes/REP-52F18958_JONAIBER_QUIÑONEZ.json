@@ -1,0 +1,37 @@
+{
+    "id": "REP-52F18958",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P2",
+    "fecha": "2026-06-21 04:36:11 PM",
+    "total_articulos": 3,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000227",
+            "descripcion": "CREMA ANTIMICOTICA (MICODERM) TARRO X 50GR (SOMA) FV.07/2029",
+            "ubicacion": "1CR01-P2",
+            "teorico": 13,
+            "fisico": 13,
+            "estado": "OK",
+            "detalle": "✅ CR000227: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000237",
+            "descripcion": "ADAPALENO 0.3% (ZUDENINA FORTE) GEL X 30GR (MEDIHEALTH) FV. 09/2029",
+            "ubicacion": "1CR01-P2",
+            "teorico": 12,
+            "fisico": 12,
+            "estado": "OK",
+            "detalle": "✅ CR000237: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000432",
+            "descripcion": "ALCANFOR + EUCALIPTO + MENTOL + SAL. DE METILO + ARNICA (DENCORUB ICE ARNICA) GEL X 40GR (PONCE & BENZO) FV. 07/28",
+            "ubicacion": "1CR01-P2",
+            "teorico": 19,
+            "fisico": 19,
+            "estado": "OK",
+            "detalle": "✅ CR000432: Verificado al pelo."
+        }
+    ]
+}

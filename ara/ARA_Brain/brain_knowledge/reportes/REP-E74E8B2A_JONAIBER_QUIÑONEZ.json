@@ -1,0 +1,64 @@
+{
+    "id": "REP-E74E8B2A",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR01-P7",
+    "fecha": "2026-07-23 07:45:55 PM",
+    "total_articulos": 6,
+    "verificados": 6,
+    "detalles": [
+        {
+            "codigo": "CR000162",
+            "descripcion": "METRONIDAZOL 15% + MICONAZOL 4% (CEFIPLUS) CREMA VAGINAL X 40GR CON 7 APLICADORES (DOLLDER) FV. 09/2027",
+            "ubicacion": "1CR01-P7",
+            "teorico": 16,
+            "fisico": 16,
+            "estado": "OK",
+            "detalle": "✅ CR000162: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000199",
+            "descripcion": "FENTICONAZOL 2% (MYCOFENTIN) CREMA TOPICA X 20GR (ELMOR) FV. 10/2027",
+            "ubicacion": "1CR01-P7",
+            "teorico": 25,
+            "fisico": 25,
+            "estado": "OK",
+            "detalle": "✅ CR000199: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000201",
+            "descripcion": "MUPIROCIN 2% UNG X 30GR (DAC55) FV. 07/2027",
+            "ubicacion": "1CR01-P7",
+            "teorico": 24,
+            "fisico": 24,
+            "estado": "OK",
+            "detalle": "✅ CR000201: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000333",
+            "descripcion": "KETOCONAZOL 2% (HIDROPIEL) CREMA X 30GR (BIOESTERIL) FV. 08/2026",
+            "ubicacion": "1CR01-P7",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000333: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000333C",
+            "descripcion": "KETOCONAZOL 2% (HIDROPIEL) CREMA X 30GR (BIOESTERIL) FV. 08/2026",
+            "ubicacion": "1CR01-P7",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000333C: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000436",
+            "descripcion": "VITAMINA A+ VITAMINA C + HIDROQUINONA (BLANQUEADORA W-1) CREMA X 30GR (FARMAGENIK) FV. 07/2027",
+            "ubicacion": "1CR01-P7",
+            "teorico": 17,
+            "fisico": 17,
+            "estado": "OK",
+            "detalle": "✅ CR000436: Verificado al pelo."
+        }
+    ]
+}
