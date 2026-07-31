@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Obtener la raíz del proyecto (tres niveles arriba de ara_server.py → C:\ARA_PROYECT)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from flask import Flask, render_template, jsonify, request, send_from_directory, send_file
 from flask_cors import CORS
 import pandas as pd
@@ -60,11 +68,28 @@ except ImportError:
 
 # -----------------------------------------------------------------------------
 # Registro del módulo HEXAGONAL DE NOTAS (notas_hexagonal.py)
-# Endpoints: /api/vision/escanear_nota, /api/notas/*, /api/trazabilidad/*, /api/reportes/movimientos/pdf
+# Endpoints: /api/notas/*, /api/trazabilidad/*, /api/reportes/movimientos/pdf
 # -----------------------------------------------------------------------------
 from notas_hexagonal import register_notas_routes, init_notas_tables
 init_notas_tables()             # crea tablas notas_entrega / detalle_nota / movimientos_preparador
 register_notas_routes(app)
+
+# -----------------------------------------------------------------------------
+# Registro del módulo OCR DE NOTAS (preparacion/ocr_notas/) — Key Pool NVIDIA NIM
+# Reemplaza el endpoint legacy /api/vision/escanear_nota de notas_hexagonal.py
+# -----------------------------------------------------------------------------
+from preparacion.ocr_notas import (
+    register_ocr_notas_routes,
+    OcrNotasService,
+    NvidiaVisionProvider,
+    OllamaVisionProvider,
+    SqliteNotaRepository,
+)
+_nvidia_provider = NvidiaVisionProvider(timeout=30)
+_ollama_provider = OllamaVisionProvider(timeout=30)
+_sqlite_repo = SqliteNotaRepository()
+_ocr_service = OcrNotasService(_nvidia_provider, _ollama_provider, _sqlite_repo)
+register_ocr_notas_routes(app, _ocr_service)
 
 @app.after_request
 def monitorear_trafico(response):

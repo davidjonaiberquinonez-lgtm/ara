@@ -127,17 +127,6 @@ class MovimientoDomain:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data', 'proyecto_ara.db')
 
-# NOTA_PROMPT para que la IA de visión extraiga la nota
-NOTA_PROMPT = (
-    'Analiza esta imagen de nota de entrega / factura / albarán. '
-    'Extrae en formato JSON estricto los siguientes campos: '
-    '{"numero_nota": string, "cliente": string, "items": ['
-    '{"descripcion": string, "cantidad": number, "unidad": string ("UND"|"CAJA"|"SOBRE"|"BLISTER")}'
-    ']}. '
-    'Si no detectas un campo, colócalo como null. '
-    'Responde ÚNICAMENTE con el JSON sin explicaciones ni markdown.'
-)
-
 def get_db():
     conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
@@ -222,77 +211,7 @@ def init_notas_tables():
 # 3. SERVICIOS DE APLICACIÓN
 # =============================================================================
 
-# --- Visión IA para notas ---
-
-def _llamar_nim_notas(base64_img: str, timeout: int = 20) -> str:
-    headers = {
-        "Authorization": f"Bearer {os.environ.get('NVIDIA_API_KEY', '')}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": "meta/llama-3.2-11b-vision-instruct",
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": NOTA_PROMPT},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_img}"}}
-                ]
-            }
-        ],
-        "max_tokens": 512,
-        "temperature": 0.1
-    }
-    try:
-        resp = requests.post("https://integrate.api.nvidia.com/v1/chat/completions",
-                             json=payload, headers=headers, timeout=timeout)
-        if resp.status_code == 200:
-            return resp.json()['choices'][0]['message']['content']
-    except Exception:
-        pass
-    return None
-
-def _llamar_ollama_notas(base64_img: str, timeout: int = 30) -> str:
-    payload = {
-        "model": "llava",
-        "prompt": NOTA_PROMPT,
-        "images": [base64_img],
-        "stream": False
-    }
-    try:
-        resp = requests.post("http://127.0.0.1:11434/api/generate",
-                             json=payload, timeout=timeout)
-        if resp.status_code == 200:
-            return resp.json().get('response', '')
-    except Exception:
-        pass
-    return None
-
-def _extraer_json_nota(texto: str) -> dict:
-    texto = texto.strip()
-    if texto.startswith('```'):
-        texto = texto.split('\n', 1)[-1]
-        texto = texto.rsplit('```', 1)[0]
-    texto = texto.strip()
-    for intento in ('{', '['):
-        inicio = texto.find(intento)
-        if inicio != -1:
-            try:
-                return json.loads(texto[inicio:])
-            except json.JSONDecodeError:
-                pass
-    return {}
-
-def _imagen_a_base64(image_input) -> str:
-    import base64
-    if isinstance(image_input, str):
-        if image_input.startswith('data:') or ',' in image_input[:100]:
-            if ',' in image_input:
-                return image_input.split(',', 1)[1]
-            return image_input
-        with open(image_input, 'rb') as f:
-            return base64.b64encode(f.read()).decode('utf-8')
-    return base64.b64encode(image_input).decode('utf-8')
+# --- Visión IA para notas (Eliminado: sustituido por preparacion/ocr_notas/) ---
 
 # --- CRUD Notas ---
 
@@ -488,50 +407,6 @@ def _consultar_trazabilidad(co_art: str = None, usuario: str = None,
 # =============================================================================
 
 def register_notas_routes(app):
-
-    @app.route('/api/vision/escanear_nota', methods=['POST'])
-    @app.route('/api/ocr/procesar-nota', methods=['POST'])
-    def vision_escanear_nota():
-        """Procesa foto de nota de entrega → extrae items con IA → inserta en BD."""
-        import requests as req_lib
-        try:
-            if 'image' in request.files:
-                image_bytes = request.files['image'].read()
-                b64 = _imagen_a_base64(image_bytes)
-            elif request.is_json:
-                data = request.get_json(silent=True) or {}
-                b64 = data.get('image', '')
-                if not b64:
-                    return jsonify({"status": "error", "mensaje": "No se recibió imagen"}), 400
-            else:
-                return jsonify({"status": "error", "mensaje": "Envíe image (form-data) o image (JSON base64)"}), 400
-
-            texto = _llamar_nim_notas(b64)
-            if not texto:
-                texto = _llamar_ollama_notas(b64)
-            if not texto:
-                return jsonify({"status": "error", "mensaje": "No se pudo analizar la imagen (IA no disponible)"}), 503
-
-            datos = _extraer_json_nota(texto)
-            numero_nota = (datos.get('numero_nota') or '').strip()
-            if not numero_nota:
-                return jsonify({"status": "error", "mensaje": "No se detectó número de nota en la imagen"}), 400
-
-            es_prueba = request.form.get('es_prueba', '0') == '1' or request.args.get('es_prueba', '0') == '1'
-            nota = _buscar_o_crear_nota(numero_nota, datos.get('cliente', ''), es_prueba=es_prueba)
-            items = datos.get('items', [])
-            items_insertados = _insertar_items(nota['id'], items) if items else []
-
-            return jsonify({
-                "status": "success",
-                "nota": nota,
-                "items": items_insertados,
-                "total_items": len(items_insertados),
-                "ocr_texto": texto[:300]
-            })
-        except Exception as e:
-            traceback.print_exc()
-            return jsonify({"status": "error", "mensaje": str(e)}), 500
 
     @app.route('/api/notas/tomar', methods=['POST'])
     def notas_tomar():

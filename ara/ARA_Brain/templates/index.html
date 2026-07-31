@@ -185,7 +185,9 @@
     font-size: 24px;
 }
 
-/* Nota OCR Camera Modal */
+/* ==============================
+   NOTA OCR CAMERA MODAL — HUD v3.10
+   ============================== */
 #nota-camera-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -198,14 +200,80 @@
     padding: 20px;
     box-sizing: border-box;
 }
-#nota-camera-overlay video {
+#webcam-preview {
     width: 100%;
     max-width: 480px;
     border-radius: 14px;
     border: 3px solid var(--accent);
     background: #000;
     box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    position: relative;
 }
+
+/* ── HUD Scan Corners (neon) ── */
+.camera-hud {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 85%;
+    max-width: 420px;
+    aspect-ratio: 4/3;
+    pointer-events: none;
+    z-index: 10;
+}
+.scan-corner {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-color: #00f0ff;
+    border-style: solid;
+}
+.scan-corner-tl { top: 0; left: 0; border-width: 3px 0 0 3px; border-radius: 6px 0 0 0; }
+.scan-corner-tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 6px 0 0; }
+.scan-corner-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; border-radius: 0 0 0 6px; }
+.scan-corner-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 6px 0; }
+
+/* ── Scanline barrido láser ── */
+.scanline {
+    position: absolute;
+    top: 0; left: 5%;
+    width: 90%; height: 3px;
+    background: linear-gradient(90deg, transparent, #00f0ff, #3b82f6, transparent);
+    box-shadow: 0 0 12px #00f0ff, 0 0 24px #3b82f6;
+    animation: scanline-sweep 2s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 11;
+}
+@keyframes scanline-sweep {
+    0%   { top: 5%; }
+    50%  { top: 80%; }
+    100% { top: 5%; }
+}
+
+/* ── Focus Badge ── */
+.focus-badge {
+    position: absolute;
+    top: 8px; left: 50%; transform: translateX(-50%);
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    z-index: 20;
+    white-space: nowrap;
+    transition: all 0.3s;
+    pointer-events: none;
+}
+.focus-badge.ready {
+    background: rgba(16,185,129,0.85);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(16,185,129,0.5);
+}
+.focus-badge.waiting {
+    background: rgba(234,179,8,0.85);
+    color: #fff;
+    box-shadow: 0 0 12px rgba(234,179,8,0.5);
+}
+
+/* ── Capture Button ── */
 #nota-camera-overlay .nota-capture-btn {
     width: 72px; height: 72px;
     border-radius: 50%;
@@ -218,11 +286,41 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 0 20px rgba(99,102,241,0.5);
-    transition: transform 0.15s;
+    transition: transform 0.15s, opacity 0.3s;
     margin: 18px 0 10px;
+    position: relative;
+    z-index: 5;
 }
 #nota-camera-overlay .nota-capture-btn:hover { transform: scale(1.08); }
 #nota-camera-overlay .nota-capture-btn:active { transform: scale(0.95); }
+#nota-camera-overlay .nota-capture-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Loading spinner ── */
+.ocr-spinner {
+    display: inline-block;
+    width: 40px; height: 40px;
+    border: 4px solid #e2e8f0;
+    border-top: 4px solid var(--accent);
+    border-radius: 50%;
+    animation: ocr-spin 0.8s linear infinite;
+}
+@keyframes ocr-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Video wrapper for HUD positioning ── */
+.video-hud-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    justify-content: center;
+}
 
 /* --- FASE 1: REDISEÑO BLINDADO DE LISTADO --- */
 .chat-layout {
@@ -667,7 +765,7 @@
     <div id="module-content" style="position: relative;"></div>
 </div>
 
-<!-- Nota OCR Camera Modal (floating, injected by JS for dynamic use) -->
+<!-- Nota OCR Camera Modal — HUD v3.10 -->
 <div id="nota-camera-overlay">
     <h3 style="color:white; font-size:16px; margin-bottom:4px; display:flex; align-items:center; gap:8px;">
         📷 Escanear Nota Física
@@ -675,13 +773,23 @@
     <p style="color:#94a3b8; font-size:12px; margin-bottom:14px; text-align:center;">
         Encuadre la nota de entrega y presione capturar
     </p>
-    <video id="nota-video-preview" autoplay playsinline></video>
+    <div class="video-hud-wrapper">
+        <video id="webcam-preview" autoplay playsinline></video>
+        <div class="camera-hud" id="camera-hud">
+            <div class="scan-corner scan-corner-tl"></div>
+            <div class="scan-corner scan-corner-tr"></div>
+            <div class="scan-corner scan-corner-bl"></div>
+            <div class="scan-corner scan-corner-br"></div>
+            <div class="scanline" id="scanline"></div>
+            <div class="focus-badge waiting" id="focus-badge">🔍 Enfocando nota...</div>
+        </div>
+    </div>
     <canvas id="nota-capture-canvas" style="display:none;"></canvas>
-    <button class="nota-capture-btn" id="nota-capture-btn" onclick="tomarFotoNota()">
+    <button class="nota-capture-btn" id="nota-capture-btn" onclick="tomarFotoNota()" disabled>
         <i data-lucide="camera" style="width:32px;height:32px;"></i>
     </button>
     <div style="display:flex; gap:10px; margin-top:6px;">
-        <button onclick="seleccionarArchivoNota()" style="background:rgba(255,255,255,0.12); color:white; border:1px solid rgba(255,255,255,0.25); padding:8px 18px; border-radius:8px; cursor:pointer; font-size:12px;">
+        <button id="btn-subir-archivo" onclick="seleccionarArchivoNota()" style="background:rgba(255,255,255,0.12); color:white; border:1px solid rgba(255,255,255,0.25); padding:8px 18px; border-radius:8px; cursor:pointer; font-size:12px;">
             📁 Subir archivo
         </button>
         <button onclick="cerrarCamaraNota()" style="background:rgba(239,68,68,0.3); color:white; border:1px solid rgba(239,68,68,0.4); padding:8px 18px; border-radius:8px; cursor:pointer; font-size:12px;">
@@ -690,6 +798,7 @@
     </div>
     <p id="nota-camera-status" style="color:#64748b; font-size:11px; margin-top:8px;"></p>
 </div>
+<input type="file" id="input-foto-nota" accept="image/*" style="display:none;">
 
 <div id="modulo-inventario" class="modulo-container" style="display:none;">
     <div class="header-modulo">
@@ -2681,8 +2790,6 @@ function renderVisorArticulos() {
             </button>
         </div>
 
-        <!-- Hidden file input for OCR Nota scanning (mobile capture) -->
-        <input type="file" id="inputNotaOCR" accept="image/*" capture="environment" style="display:none;">
     `;
     if (window.lucide) window.lucide.createIcons();
 }
@@ -5818,34 +5925,171 @@ async function tomarNotaDesdeLista(notaId, numeroNotaEncoded) {
 }
 
 // =============================================================================
-// NOTA OCR: Cámara + Captura + Envío a IA
+// NOTA OCR v3.10: Canvas Pipeline + HUD Enfoque + Envío a IA
 // =============================================================================
+
+// ─── Helper: Preprocesamiento y Compresión (Canvas Pipeline) ───
+async function optimizarImagenParaOCR(fileOrBlob) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(fileOrBlob);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let { width, height } = img;
+            const MAX = 1600;
+            if (width > MAX || height > MAX) {
+                if (width > height) {
+                    height = Math.round(height * MAX / width);
+                    width = MAX;
+                } else {
+                    width = Math.round(width * MAX / height);
+                    height = MAX;
+                }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // ── Mejora de contraste (resalte texto sobre papel) ──
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            const factor = 1.25;
+            for (let i = 0; i < data.length; i += 4) {
+                for (let c = 0; c < 3; c++) {
+                    let val = data[i + c];
+                    val = Math.min(255, Math.max(0, Math.round((val - 128) * factor + 128)));
+                    data[i + c] = val;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+            // ── Exportar JPEG calidad 0.82 (target <500KB) ──
+            const maxIntentos = 3;
+            function intentarExportar(intento) {
+                const calidad = [0.82, 0.72, 0.60][intento] || 0.5;
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        if (blob.size > 500 * 1024 && intento < maxIntentos - 1) {
+                            intentarExportar(intento + 1);
+                        } else {
+                            console.log(`[OCR] Imagen optimizada: ${width}x${height}, calidad=${calidad}, tamaño=${(blob.size / 1024).toFixed(1)}KB`);
+                            resolve(blob);
+                        }
+                    } else {
+                        reject(new Error('canvas.toBlob falló'));
+                    }
+                }, 'image/jpeg', calidad);
+            }
+            intentarExportar(0);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('No se pudo decodificar la imagen')); };
+        img.src = url;
+    });
+}
+
+// ─── HUD: Detector de Claridad/Luminosidad ───
+let _hudInterval = null;
+let _hudReady = false;
+
+function _iniciarHudEnfoque(video) {
+    _detenerHudEnfoque();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const badge = document.getElementById('focus-badge');
+    const shutter = document.getElementById('nota-capture-btn');
+    if (!badge || !shutter) return;
+
+    _hudInterval = setInterval(() => {
+        if (!video.videoWidth || !video.videoHeight) return;
+        canvas.width = 120;
+        canvas.height = 90;
+        ctx.drawImage(video, 0, 0, 120, 90);
+        const imageData = ctx.getImageData(0, 0, 120, 90);
+        const data = imageData.data;
+
+        // Varianza de luminancia (proxy de nitidez)
+        let sum = 0, sumSq = 0, count = 0;
+        let totalLum = 0;
+        for (let i = 0; i < data.length; i += 16) {
+            const r = data[i], g = data[i + 1], b = data[i + 2];
+            const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+            sum += lum;
+            sumSq += lum * lum;
+            totalLum += lum;
+            count++;
+        }
+        const mean = sum / count;
+        const variance = sumSq / count - mean * mean;
+        const avgLum = totalLum / count;
+
+        const nitida = variance > 800;
+        const luzSuficiente = avgLum > 40;
+
+        if (nitida && luzSuficiente) {
+            badge.className = 'focus-badge ready';
+            badge.textContent = '🟢 Texto Detectado / Enfoque Óptimo';
+            shutter.disabled = false;
+            _hudReady = true;
+        } else if (!luzSuficiente) {
+            badge.className = 'focus-badge waiting';
+            badge.textContent = '🟡 Enfocando nota... (luz insuficiente)';
+            shutter.disabled = true;
+            _hudReady = false;
+        } else {
+            badge.className = 'focus-badge waiting';
+            badge.textContent = '🟡 Enfocando nota... (movimiento brusco)';
+            shutter.disabled = true;
+            _hudReady = false;
+        }
+    }, 300);
+}
+
+function _detenerHudEnfoque() {
+    if (_hudInterval) {
+        clearInterval(_hudInterval);
+        _hudInterval = null;
+    }
+    _hudReady = false;
+}
+
+// ─── Cámara: Abrir, Cerrar, Capturar ───
 async function abrirCamaraNota() {
     const overlay = document.getElementById('nota-camera-overlay');
-    const video = document.getElementById('nota-video-preview');
+    const video = document.getElementById('webcam-preview');
     const statusEl = document.getElementById('nota-camera-status');
+    const shutter = document.getElementById('nota-capture-btn');
     if (!overlay || !video) return;
 
     overlay.style.display = 'flex';
     if (statusEl) statusEl.textContent = 'Solicitando acceso a cámara...';
+    if (shutter) shutter.disabled = true;
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" },
+            video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
             audio: false
         });
         video.srcObject = stream;
-        if (statusEl) statusEl.textContent = '✔ Cámara activa. Enfoque la nota y capture.';
+        await video.play();
+
+        _iniciarHudEnfoque(video);
+
+        if (statusEl) statusEl.textContent = '✔ Cámara activa. Enfoque la nota para habilitar captura.';
         try { lucide.createIcons(); } catch(e) {}
     } catch (err) {
+        console.error('[OCR] Error cámara:', err);
         if (statusEl) statusEl.textContent = '⚠ No se pudo acceder a la cámara. Use "Subir archivo".';
-        // Still show overlay with file upload option
     }
 }
 
 function cerrarCamaraNota() {
+    _detenerHudEnfoque();
     const overlay = document.getElementById('nota-camera-overlay');
-    const video = document.getElementById('nota-video-preview');
+    const video = document.getElementById('webcam-preview');
     if (video && video.srcObject) {
         video.srcObject.getTracks().forEach(t => t.stop());
         video.srcObject = null;
@@ -5854,7 +6098,7 @@ function cerrarCamaraNota() {
 }
 
 function seleccionarArchivoNota() {
-    const input = document.getElementById('inputNotaOCR');
+    const input = document.getElementById('input-foto-nota');
     if (input) {
         input.value = '';
         input.click();
@@ -5863,13 +6107,13 @@ function seleccionarArchivoNota() {
 
 // Called when user selects a file from the hidden input
 document.addEventListener('change', function(e) {
-    if (e.target.id === 'inputNotaOCR' && e.target.files && e.target.files[0]) {
+    if (e.target.id === 'input-foto-nota' && e.target.files && e.target.files[0]) {
         procesarImagenNota(e.target.files[0]);
     }
 });
 
 async function tomarFotoNota() {
-    const video = document.getElementById('nota-video-preview');
+    const video = document.getElementById('webcam-preview');
     const canvas = document.getElementById('nota-capture-canvas');
     if (!video || !canvas || !video.srcObject) {
         mostrarToast('No hay cámara activa. Use "Subir archivo".');
@@ -5888,21 +6132,40 @@ async function tomarFotoNota() {
     procesarImagenNota(blob);
 }
 
+// ─── OCR: Envío a API con estado visual ───
 async function procesarImagenNota(imagenBlob) {
     const div = document.getElementById('notas-content');
     if (!div) return;
 
+    // Estado: Optimizando
     div.innerHTML = `
         <div style="text-align:center; padding:30px;">
-            <div class="spinner" style="margin:0 auto 12px;"></div>
-            <p style="font-size:14px; font-weight:600; color:var(--accent);">🧠 Mini ARA procesando nota física con OCR...</p>
+            <div class="ocr-spinner" style="margin:0 auto 12px;"></div>
+            <p style="font-size:14px; font-weight:600; color:var(--accent);">📐 Optimizando imagen...</p>
+            <p style="font-size:11px; color:#64748b;">Redimensionando y comprimiendo para envío a NVIDIA NIM Vision.</p>
+        </div>
+    `;
+
+    let blobFinal;
+    try {
+        blobFinal = await optimizarImagenParaOCR(imagenBlob);
+    } catch (e) {
+        console.warn('[OCR] Falló optimización, usando original:', e);
+        blobFinal = imagenBlob;
+    }
+
+    // Estado: Enviando
+    div.innerHTML = `
+        <div style="text-align:center; padding:30px;">
+            <div class="ocr-spinner" style="margin:0 auto 12px;"></div>
+            <p style="font-size:14px; font-weight:600; color:var(--accent);">🧠 Enviando a NVIDIA NIM Vision...</p>
             <p style="font-size:11px; color:#64748b;">Analizando imagen, extrayendo datos e insertando en base de datos.</p>
         </div>
     `;
 
     try {
         const formData = new FormData();
-        formData.append('image', imagenBlob, 'nota_ocr.jpg');
+        formData.append('image', blobFinal, 'nota_ocr.jpg');
 
         const res = await fetch('/api/vision/escanear_nota', {
             method: 'POST',
@@ -5911,14 +6174,29 @@ async function procesarImagenNota(imagenBlob) {
 
         const data = await res.json();
 
-        if (data.status !== 'success') {
-            div.innerHTML = `<div class="card-item" style="border-left:4px solid #ef4444; padding:14px; color:#dc2626;">
-                <b>⚠ Error:</b> ${data.mensaje || 'No se pudo procesar la nota.'}</div>`;
+        if (data.status === 'error') {
+            const errorDetalle = data.errores
+                ? Object.entries(data.errores).map(([k, v]) => `• ${k}: ${v}`).join('<br>')
+                : '';
+            div.innerHTML = `
+                <div class="card-item" style="border-left:4px solid #ef4444; padding:14px;">
+                    <b style="color:#dc2626;">⚠ Error:</b>
+                    <p style="margin:6px 0; color:#475569;">${data.mensaje || 'No se pudo procesar la nota.'}</p>
+                    ${errorDetalle ? `<details style="margin-top:8px; font-size:11px; color:#64748b;">
+                        <summary style="cursor:pointer; font-weight:600;">🔍 Ver detalle técnico</summary>
+                        <p style="margin:4px 0 0; white-space:pre-wrap;">${errorDetalle}</p>
+                    </details>` : ''}
+                    ${data.fase ? `<p style="margin:4px 0 0; font-size:11px; color:#94a3b8;">Fase: ${data.fase}</p>` : ''}
+                </div>`;
             return;
         }
 
-        const nota = data.nota || {};
-        const items = data.items || [];
+        // Mapear respuesta del backend OCR (puede venir en data.ocr u otros formatos)
+        const ocr = data.ocr || {};
+        const notaBd = data.nota_bd || {};
+        const nota = notaBd.nota || {};
+        const items = notaBd.items || data.items || ocr.items || [];
+        const origen = data.origen_procesamiento || ocr.origen_procesamiento || 'N/A';
 
         let itemsHtml = '';
         if (items.length === 0) {
@@ -5927,8 +6205,8 @@ async function procesarImagenNota(imagenBlob) {
             itemsHtml = items.map((item, i) => `
                 <div class="card-item" style="margin-bottom:6px; padding:10px; border-left:3px solid var(--accent);">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <b style="font-size:13px;">${escHtml(item.co_art || 'N/A')}</b>
-                        <span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${item.cantidad || 0} ${item.unidad_medida || 'UND'}</span>
+                        <b style="font-size:13px;">${escHtml(item.co_art || item.codigo_producto || 'N/A')}</b>
+                        <span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${item.cantidad_solicitada || item.cantidad || 0} ${item.unidad_medida || item.unidad || 'UND'}</span>
                     </div>
                     <p style="margin:4px 0 0; font-size:12px; color:#475569;">${escHtml(item.art_des || item.descripcion || '')}</p>
                 </div>
@@ -5939,22 +6217,24 @@ async function procesarImagenNota(imagenBlob) {
             <div style="border:2px solid #22c55e; background:#f0fdf4; border-radius:12px; padding:16px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h4 style="margin:0; color:#166534;">✅ Nota Escaneada Exitosamente</h4>
-                    <span style="background:#166534; color:white; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:bold;">${data.total_items || 0} artículos</span>
+                    <span style="background:#166534; color:white; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:bold;">${items.length} artículos</span>
                 </div>
                 <div style="font-size:13px; background:white; border-radius:8px; padding:12px; border:1px solid #bbf7d0;">
-                    <p style="margin:3px 0;"><b>📄 Nota:</b> ${escHtml(nota.numero_nota || 'N/A')}</p>
-                    <p style="margin:3px 0;"><b>👤 Cliente:</b> ${escHtml(nota.cliente || 'N/A')}</p>
+                    <p style="margin:3px 0;"><b>📄 Nota:</b> ${escHtml(ocr.numero_nota || nota.numero_nota || 'N/A')}</p>
+                    <p style="margin:3px 0;"><b>👤 Cliente:</b> ${escHtml(ocr.nombre_cliente || ocr.codigo_cliente || nota.cliente || 'N/A')}</p>
+                    <p style="margin:3px 0;"><b>🤖 Origen:</b> <span style="background:#e0e7ff; color:#3730a3; padding:1px 6px; border-radius:4px; font-size:11px;">${origen}</span></p>
                     <p style="margin:3px 0;"><b>📌 Estado:</b> <span style="background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px; font-size:11px;">${nota.estado || 'pendiente'}</span></p>
+                    <p style="margin:3px 0;"><b>🎯 Confianza:</b> ${ocr.confianza_escaneo ? (ocr.confianza_escaneo * 100).toFixed(0) + '%' : 'N/A'}</p>
                     ${nota.items_count ? `<p style="margin:3px 0;"><b>📦 Items registrados:</b> ${nota.items_count}</p>` : ''}
-                    ${data.ocr_texto ? `<p style="margin:6px 0 0; font-size:11px; color:#64748b; border-top:1px solid #dcfce7; padding-top:6px;"><b>📝 OCR:</b> ${escHtml(data.ocr_texto)}</p>` : ''}
                 </div>
                 <div style="margin-top:12px;">
                     <h5 style="margin:0 0 8px; font-size:13px; color:#166534;">📋 Artículos Detectados</h5>
                     ${itemsHtml}
                 </div>
                 <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
-                    <button class="btn-action" style="background:var(--accent);" onclick="tomarNotaDesdeOCR(${nota.id || 0}, '${encodeURIComponent(nota.numero_nota || '')}')">
-                        🚀 Iniciar Preparación de esta Nota
+                    <button class="btn-action" style="background:var(--success);"
+                        onclick="tomarNotaDesdeOCR(${nota.id || 0}, '${encodeURIComponent(ocr.numero_nota || nota.numero_nota || '')}')">
+                        🚀 Iniciar Preparación (preparando)
                     </button>
                     <button class="btn-action" onclick="abrirCamaraNota()">
                         📷 Escanear Otra Nota
@@ -5966,7 +6246,6 @@ async function procesarImagenNota(imagenBlob) {
             </div>
         `;
 
-        // Scroll into view
         div.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     } catch (e) {
@@ -5976,6 +6255,7 @@ async function procesarImagenNota(imagenBlob) {
     }
 }
 
+// ─── Tomar Nota desde OCR: transiciona a 'preparando' ───
 async function tomarNotaDesdeOCR(notaId, numeroNotaEncoded) {
     const numeroNota = decodeURIComponent(numeroNotaEncoded || '');
     if (!notaId || notaId === 0) {
@@ -5997,7 +6277,7 @@ async function tomarNotaDesdeOCR(notaId, numeroNotaEncoded) {
         const data = await res.json();
 
         if (data.ok) {
-            mostrarToast(`✅ Nota ${numeroNota} asignada a ${usuario}.`);
+            mostrarToast(`✅ Nota ${numeroNota} asignada a ${usuario} — Estado: preparando`);
             cargarNotasPendientes();
         } else {
             mostrarToast(`⚠ ${data.error || 'No se pudo tomar la nota.'}`);
