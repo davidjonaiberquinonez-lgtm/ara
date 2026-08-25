@@ -1,0 +1,55 @@
+{
+    "id": "REP-598A1E03",
+    "usuario": "JONAIBER QUIÑONEZ",
+    "estante": "1CR02-P5",
+    "fecha": "2026-08-05 06:41:44 PM",
+    "total_articulos": 5,
+    "verificados": 3,
+    "detalles": [
+        {
+            "codigo": "CR000250",
+            "descripcion": "DICLOFENACO (DICLO GEL) GEL X 50GR (UNIPHARMA) FV. 04/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 121,
+            "fisico": 121,
+            "estado": "OK",
+            "detalle": "✅ CR000250: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000250C",
+            "descripcion": "DICLOFENACO (DICLO GEL) GEL X 50GR (UNIPHARMA) FV. 04/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 8,
+            "fisico": 7,
+            "estado": "FALTA",
+            "detalle": "⚠️ CR000250C: Faltan 1 unidades en físico."
+        },
+        {
+            "codigo": "CR000354",
+            "descripcion": "CLOTRIMAZOL 1% + NEOMICINA 0.05% + DEXAMETASONA 0.04% (TRICLEAR) CREMA X 20GR (PRISM) FV.05/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 0,
+            "fisico": 0,
+            "estado": "OK",
+            "detalle": "✅ CR000354: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000381",
+            "descripcion": "DICLOFENAC SODICO 1% (DIFENAC) GEL X 30GR (DOLLDER) FV. 05/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 8,
+            "fisico": 8,
+            "estado": "OK",
+            "detalle": "✅ CR000381: Verificado al pelo."
+        },
+        {
+            "codigo": "CR000434",
+            "descripcion": "KETOPROFENO 2.5% GEL X 50GR (DISTRILAB) FV. 11/2027",
+            "ubicacion": "1CR02-P5",
+            "teorico": 12,
+            "fisico": 13,
+            "estado": "SOBRA",
+            "detalle": "🔥 CR000434: Sobran 1 unidades en estante."
+        }
+    ]
+}

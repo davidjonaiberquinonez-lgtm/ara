@@ -1,9 +1,14 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
+const { OllamaVisionService } = require('../../../src/services/ollamaVisionService.js');
 
 // IP de tu servidor Flask
-const SERVER_URL = "http://192.168.1.44:5000"; 
+const SERVER_URL = "http://192.168.1.44:5000";
+
+// Visor híbrido LOCAL (llava:7b + qwen2.5-coder:7b). Sin llamadas a NVIDIA NIM:
+// todo el análisis de imágenes se resuelve en Ollama Local (localhost:11434).
+const visorOllama = new OllamaVisionService({ timeoutMs: 15000 });
 
 const client = new Client({
     authStrategy: new LocalAuth() // Guarda la sesión para no escanear el QR cada vez
@@ -38,11 +43,34 @@ client.on('message', async msg => {
         // Si trae multimedia, la descargamos como base64 para almacenarla
         let contenido = msg.body;
         let tipo = detectarTipo(msg);
+        let analisisVision = null;
         if (msg.hasMedia && (tipo === 'image' || tipo === 'audio' || tipo === 'file')) {
             try {
                 const media = await msg.downloadMedia();
                 if (media) {
                     contenido = `data:${media.mimetype};base64,${media.data}`;
+                    // Visor híbrido local: analiza la imagen con llava:7b + JSON
+                    // con qwen2.5-coder:7b. Best-effort: si Ollama no responde, el
+                    // mensaje se envía igual (solo se loguea la advertencia).
+                    if (tipo === 'image') {
+                        try {
+                            const resVision = await visorOllama.analizarImagen(
+                                Buffer.from(media.data, 'base64'),
+                                { json: true }
+                            );
+                            analisisVision = {
+                                motor: resVision.motor,
+                                modelo_vision: resVision.modelo_vision,
+                                modelo_json: resVision.modelo_json,
+                                datos: resVision.datos,
+                                texto_vision: resVision.texto_vision,
+                                latencia_ms: resVision.latencia_ms,
+                            };
+                            console.log(`[NodeVisor] 🔍 Visor local OK para ${telefonoLimpio} (${resVision.latencia_ms}ms)`);
+                        } catch (eVision) {
+                            console.warn(`[NodeVisor] ⚠️ Visor local omitido: ${eVision.message}`);
+                        }
+                    }
                 }
             } catch (e) {
                 console.warn("No se pudo descargar media:", e.message);
@@ -50,12 +78,16 @@ client.on('message', async msg => {
         }
 
         // Enviamos el mensaje al webhook del servidor Flask (Ara Server)
-        const response = await axios.post(`${SERVER_URL}/api/chat/webhook`, {
+        const payload = {
             usuario: telefonoLimpio,   // número de teléfono del cliente
             nombre:  msg._data?.notifyName || telefonoLimpio,
             mensaje: contenido,
             tipo:    tipo
-        });
+        };
+        if (analisisVision) {
+            payload.analisis_vision = analisisVision;
+        }
+        const response = await axios.post(`${SERVER_URL}/api/chat/webhook`, payload);
 
         // El servidor NO responde automáticamente: el agente responde desde la UI.
         // Aquí sólo confirmamos recepción en consola.

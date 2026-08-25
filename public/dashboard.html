@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARA Engine | Dashboard Ejecutivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0.3; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8 border-b pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">Proyecto ARA</h1>
+                <p class="text-sm text-slate-500">Panel de Control de Infraestructura y Operaciones</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="last-update" class="text-sm text-slate-400">Cargando...</span>
+                <div class="flex items-center space-x-2">
+                    <span class="relative flex h-3 w-3">
+                      <span id="status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span id="status-dot" class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                    </span>
+                    <span id="status-text" class="text-sm font-medium text-emerald-600">Conectado</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de Tarjetas KPI -->
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            
+            <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-emerald-500 fade-in">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-slate-500 truncate">Estatus del Motor IA</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-slate-900" id="kpi-estatus">--</dd>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-blue-500 fade-in">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-slate-500 truncate">Notas del Día</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-blue-600" id="kpi-notas">--</dd>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-indigo-500 fade-in">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-slate-500 truncate">Facturas Emitidas</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-indigo-600" id="kpi-facturas">--</dd>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow rounded-lg border-l-4 border-amber-500 fade-in">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-slate-500 truncate">Clientes Activos</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-amber-600" id="kpi-clientes">--</dd>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'api/metricas.php';
+        const REFRESH_INTERVAL_MS = 60000;
+        const REQUEST_TIMEOUT_MS = 5000;
+
+        let isFetching = false;
+
+        async function fetchMetricasSeguro() {
+            if (isFetching) return; 
+            isFetching = true;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+            try {
+                const response = await fetch(API_URL, { 
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const json = await response.json();
+                
+                if (json.status === 'success' && json.data) {
+                    renderKPIs(json.data);
+                    setConnectionStatus(true);
+                } else {
+                    setConnectionStatus(false);
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                setConnectionStatus(false);
+            } finally {
+                isFetching = false;
+                document.getElementById('last-update').innerText = `Última act: ${new Date().toLocaleTimeString()}`;
+            }
+        }
+
+        function renderKPIs(data) {
+            document.getElementById('kpi-estatus').textContent = data.estatus_servicio || 'OK';
+            document.getElementById('kpi-notas').textContent = data.notas_del_dia ?? '0';
+            document.getElementById('kpi-facturas').textContent = data.facturas_del_dia ?? '0';
+            document.getElementById('kpi-clientes').textContent = data.clientes_activos ?? '0';
+        }
+
+        function setConnectionStatus(isOnline) {
+            const statusDot = document.getElementById('status-dot');
+            const statusPing = document.getElementById('status-ping');
+            const statusText = document.getElementById('status-text');
+
+            if (isOnline) {
+                statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-emerald-500';
+                statusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+                statusText.textContent = 'Conectado';
+                statusText.className = 'text-sm font-medium text-emerald-600';
+            } else {
+                statusDot.className = 'relative inline-flex rounded-full h-3 w-3 bg-red-500';
+                statusPing.className = 'hidden';
+                statusText.textContent = 'Reintentando...';
+                statusText.className = 'text-sm font-medium text-amber-600';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMetricasSeguro();
+            setInterval(fetchMetricasSeguro, REFRESH_INTERVAL_MS);
+        });
+    </script>
+</body>
+</html>

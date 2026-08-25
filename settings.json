@@ -1,0 +1,46 @@
+{
+    "═══════════════════════════════════════": "ARA_PROYECT — VS CODE OPTIMIZADO",
+    "⚡ ZONA DE COMBATE: Minimizar procesos y watchers": true,
+
+    "files.autoSave": "off",
+    "files.watcherExclude": {
+        "**/vendor/**": true,
+        "**/node_modules/**": true,
+        "**/.git/**": true,
+        "**/storage/**": true,
+        "**/ara/ARA_Brain/data/**": true,
+        "**/ara/ARA_Brain/cache_tts/**": true,
+        "**/ara/ARA_Brain/services/models/**": true,
+        "**/bin/**": true,
+        "**/preparacion/**": true,
+        "**/rutas/**": true,
+        "**/visor_articulos/**": true,
+        "**/skills/**": true,
+        "**/legacy_visor/**": true,
+        "**/chequeo/**": true
+    },
+    "files.exclude": {
+        "**/vendor": true,
+        "**/node_modules": true,
+        "**/.git": true
+    },
+
+    "php.validate.enable": false,
+    "php.suggest.enabled": false,
+    "php.intelephense.diagnostics.enable": false,
+    "php.intelephense.files.exclude": [
+        "**/vendor/**",
+        "**/node_modules/**",
+        "**/storage/**"
+    ],
+
+    "git.autofetch": false,
+    "git.confirmSync": false,
+    "extensions.autoUpdate": false,
+    "workbench.startupEditor": "none",
+    "window.restoreWindows": "none",
+    "terminal.integrated.enablePersistentSessions": false,
+    "terminal.integrated.persistentSessionReviveProcess": "never",
+
+    "═══════════════════════════════════════": "FIN ZONA DE COMBATE"
+}

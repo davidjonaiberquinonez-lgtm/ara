@@ -1,0 +1,51 @@
+📝 Tabla log_ia_feedback inicializada.
+TTS Kokoro 82M registrado (/api/tts/kokoro).
+🧩 Preparación: MODO LEGACY PHP (http://192.168.4.148:8000) + sync renglones Profit
+Configuración cargada correctamente.
+🚚 Módulo REALIZAR RUTA: MODO LEGACY /visor/ (http://192.168.4.148:8000)
+🚚 Módulo REALIZAR RUTA (BQTO): vía puente http://100.116.126.99:5099
+📦 Módulo EMBALAJE: POST directo a http://192.168.4.148:8000/gestion_produc_bqmt/actualizar_nota_embalaje.php
+🔍 VISOR HÍBRIDO: índice en memoria con 1146 productos (origen: cache_disco)
+🔍 VISOR HÍBRIDO registrado: POST /api/visor/buscar (síncrono en memoria)
+[IMAGENES] Columna imagen_url ya existía en stock_maestro.
+[RBAC] Permisos migrados para 35 usuarios.
+[RUTAS] Columnas es_responsable_ruta/ruta_asignada verificadas + backfill OK.
+[PERFIL] Columnas foto_perfil/descripcion verificadas OK.
+✅ Bases de datos operacionales de soporte cargadas.
+🚀 Iniciando ARA Brain Middleware en http://0.0.0.0:5000...
+
+════════════════════════════════════════════════════════════
+ 🤖 ¡SISTEMA ARA EN LÍNEA Y CORRIENDO, PERRO! 🤖
+════════════════════════════════════════════════════════════
+📌 Rutas de acceso disponibles:
+   🏠 Local (Esta PC):  http://127.0.0.1:5000
+   📱 Desde el Celular: http://192.168.4.217:5000
+════════════════════════════════════════════════════════════
+➔ Monitoreando peticiones en tiempo real...
+
+👉 [GET] /api/chat/conversaciones — IP: 192.168.4.217
+👉 [GET] /api/atencion/conversaciones — IP: 192.168.4.217
+👉 [GET] /api/chat/conversaciones — IP: 192.168.4.217
+👉 [GET] /api/atencion/conversaciones — IP: 192.168.4.217
+👉 [GET] /api/chat/conversaciones — IP: 192.168.4.217
+👉 [GET] /api/atencion/conversaciones — IP: 192.168.4.217
+[LegacyPHP] POST http://192.168.4.148:8000/gestion_produc_bqmt/actualizar_nota.php datos={'codigoBarra': '72166804'}
+👉 [GET] /api/vision/voucher/estado — IP: 192.168.4.217
+[LegacyPHP] Respuesta cruda (400 chars): {"articulos":[{"co_art":"MD04417                       ","art_des":"VALSARTAN 160MG (COFASUR) CJ X 30 TABL (COFASA) FV. 11\/2027                                                             ","total_art":12}],"notaInfo":{"cantidad_items":"1","co_cli":"FAR01718  ","cli_des":"FARMACIA CIENCIAS MAUROA CA                                                                         "}}
+[SqliteNotaStore] Nota 72166804 creada (id=1468, estado=preparando, origen=BARQUISIMETO)
+📝 Tabla log_ia_feedback inicializada.
+TTS Kokoro 82M registrado (/api/tts/kokoro).
+🧩 Preparación: MODO LEGACY PHP (http://192.168.4.148:8000) + sync renglones Profit
+🚚 Módulo REALIZAR RUTA: MODO LEGACY /visor/ (http://192.168.4.148:8000)
+🚚 Módulo REALIZAR RUTA (BQTO): vía puente http://100.116.126.99:5099
+📦 Módulo EMBALAJE: POST directo a http://192.168.4.148:8000/gestion_produc_bqmt/actualizar_nota_embalaje.php
+🔍 VISOR HÍBRIDO: índice en memoria con 1146 productos (origen: cache_disco)
+🔍 VISOR HÍBRIDO registrado: POST /api/visor/buscar (síncrono en memoria)
+[IMAGENES] Columna imagen_url ya existía en stock_maestro.
+[RBAC] Permisos migrados para 35 usuarios.
+[RUTAS] Columnas es_responsable_ruta/ruta_asignada verificadas + backfill OK.
+[PERFIL] Columnas foto_perfil/descripcion verificadas OK.
+✅ Bases de datos operacionales de soporte cargadas.
+👉 [GET] /api/preparacion_hex/nota — IP: 192.168.4.217
+👉 [GET] /api/chat/conversaciones — IP: 192.168.4.217
+👉 [GET] /api/atencion/conversaciones — IP: 192.168.4.217

@@ -6,7 +6,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from flask import Flask, render_template, jsonify, request, send_from_directory, send_file
+from flask import Flask, render_template, jsonify, request, send_from_directory, send_file, make_response, redirect
 from flask_cors import CORS
 import pandas as pd
 import requests
@@ -23,7 +23,13 @@ import string
 import io
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+import threading
 import time
+
+# Multi-Sede (Macro-Rutas): import global para que la resolución de sede no
+# dependa de un try/except local que dejaría `normalizar_sede` sin vincular.
+from rutas.application.user_service import asegurar_columna_sede, normalizar_sede
+from auth_sesion import emitir_token_sesion, verificar_token_sesion
 
 try:
     from reportlab.lib.pagesizes import letter, A4
@@ -37,6 +43,9 @@ except ImportError:
     print("⚠️ reportlab no instalado. PDF no disponible. Instala: pip install reportlab")
 
 app = Flask(__name__)
+# Límite de recepción JSON explícito (32 MB): las fotos de cámara en alta
+# resolución no deben romper la petición con "Payload Too Large" ({} vacíos).
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # -----------------------------------------------------------------------------
@@ -48,13 +57,54 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 from pdf_route import register_pdf_route
 register_pdf_route(app)
 
+# Reporte de rendimiento en XLSX (v4.57): reemplaza el PDF en el Dashboard
+# de Rendimiento — el equipo necesita filtrar/ordenar los datos, algo que un
+# PDF no permite. Mismo dataset que pdf_route.py, 4 hojas con autofiltro.
+from xlsx_route import register_xlsx_route
+register_xlsx_route(app)
+
+# API local de OCR de vouchers para proyectos externos (misma PC/red local):
+# envoltorio HTTP sobre la tool leer_voucher_ocr, que solo acepta ruta de
+# archivo en el servidor — este módulo recibe la imagen (upload/base64) y
+# hace el puente. Ver vision_ocr_route.py.
+from vision_ocr_route import register_vision_ocr_routes
+register_vision_ocr_routes(app)
+
+# API local de consulta de clientes para proyectos externos (misma PC/red
+# local): envoltorio HTTP sobre la tool consultar_cliente. Ver cliente_route.py.
+from cliente_route import register_cliente_routes
+register_cliente_routes(app)
+from presencia_routes import register_presencia_routes
+register_presencia_routes(app)
+from ara_inteligente_routes import register_ara_inteligente_routes
+register_ara_inteligente_routes(app)
+from sso_erp_routes import register_sso_routes
+register_sso_routes(app)
+
 # -----------------------------------------------------------------------------
 # Registro del módulo de BANDEJA DE MENSAJERÍA (chat_routes.py)
 # Endpoints bajo /api/chat/* (conversaciones, historial, enviar, webhook, poll)
 # -----------------------------------------------------------------------------
+# Blindaje de consola (mismo patrón v4.7): los prints con emojis/acentos no
+# deben tumbar el arranque ni el import en consolas cp1252.
+try:
+    for _flujo in (sys.stdout, sys.stderr):
+        try:
+            reconfigurar = getattr(_flujo, "reconfigure", None)
+            if callable(reconfigurar):
+                reconfigurar(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+except Exception:
+    pass
+
 from chat_routes import register_chat_routes, init_chat_tables
 init_chat_tables()              # crea tablas contactos/conversaciones/mensajes si faltan
 register_chat_routes(app)
+
+from atencion_cliente_routes import register_atencion_routes, init_atencion_tables
+init_atencion_tables()          # crea tablas meta_numeros/atencion_conversaciones/mensajes si faltan
+register_atencion_routes(app)
 
 # -----------------------------------------------------------------------------
 # Inicializar tabla de feedback de IA (ara_brain)
@@ -70,9 +120,47 @@ except ImportError:
 # Registro del módulo HEXAGONAL DE NOTAS (notas_hexagonal.py)
 # Endpoints: /api/notas/*, /api/trazabilidad/*, /api/reportes/movimientos/pdf
 # -----------------------------------------------------------------------------
-from notas_hexagonal import register_notas_routes, init_notas_tables
+from notas_hexagonal import register_notas_routes, init_notas_tables, migrate_notas_estado_check
 init_notas_tables()             # crea tablas notas_entrega / detalle_nota / movimientos_preparador
+migrate_notas_estado_check()    # si el CHECK de estado es viejo, lo redefine (admite estados del flujo)
 register_notas_routes(app)
+
+# -----------------------------------------------------------------------------
+# Servicio TTS Kokoro 82M (feedback de voz del Módulo Preparación/Picking)
+# Endpoints: /api/tts/kokoro (POST), /api/tts/estado (GET)
+# -----------------------------------------------------------------------------
+# Garantizar que el directorio del servidor y la subcarpeta services estén
+# en sys.path (resuelve reportMissingImports de Pylance y fallos de arranque
+# cuando se ejecuta desde un CWD distinto).
+_BASE_DIR = Path(__file__).resolve().parent
+_SERVICES_DIR = _BASE_DIR / "services"
+if str(_BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(_BASE_DIR))
+if str(_SERVICES_DIR) not in sys.path:
+    sys.path.insert(0, str(_SERVICES_DIR))
+
+# Importación con try/except para resiliencia y compatibilidad con Pylance
+try:
+    from services.kokoro_tts import register_tts_routes
+    register_tts_routes(app)
+    print("TTS Kokoro 82M registrado (/api/tts/kokoro).")
+except ImportError:
+    try:
+        from kokoro_tts import register_tts_routes  # noqa: F401 (respaldo)
+        register_tts_routes(app)
+        print("TTS Kokoro 82M registrado (respaldo /api/tts/kokoro).")
+    except ImportError:
+        register_tts_routes = None
+        print("⚠️ TTS Kokoro no disponible: módulo kokoro_tts no encontrado.")
+
+# -----------------------------------------------------------------------------
+# Favicon: el navegador pide /favicon.ico en la raíz → se sirve el SVG minimalista
+# (archivo multimedia reside en static/img/, servido por Flask como estático)
+# -----------------------------------------------------------------------------
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static', 'img'),
+                               'gemini-svg.svg', mimetype='image/svg+xml')
 
 # -----------------------------------------------------------------------------
 # Registro del módulo OCR DE NOTAS (preparacion/ocr_notas/) — Key Pool NVIDIA NIM
@@ -91,9 +179,110 @@ _sqlite_repo = SqliteNotaRepository()
 _ocr_service = OcrNotasService(_nvidia_provider, _ollama_provider, _sqlite_repo)
 register_ocr_notas_routes(app, _ocr_service)
 
+# -----------------------------------------------------------------------------
+# Registro del módulo HEXAGONAL DE PREPARACIÓN (preparacion/) — Feature flag
+# USE_DIRECT_SQL=false → LegacyPHPAdapter (192.168.4.148:8000)
+# USE_DIRECT_SQL=true  → ProfitSQLAdapter (stubs hasta credenciales activas)
+# -----------------------------------------------------------------------------
+from preparacion import (
+    PreparationService,
+    LegacyPHPAdapter,
+    ProfitSQLAdapter,
+    SqliteNotaStore,
+    register_preparation_routes,
+)
+from preparacion.infrastructure.adapters.profit_renglones_sync import ProfitRenglonesSync
+from preparacion.infrastructure.adapters.legacy_mysql_sync import LegacyMySQLConnector
+USE_DIRECT_SQL = os.getenv("USE_DIRECT_SQL", "false").lower() in ("true", "1", "yes")
+LEGACY_API_URL = os.getenv("LEGACY_API_URL", "http://192.168.4.148:8000")
+LEGACY_VISOR_CLAVE = os.getenv("LEGACY_VISOR_CLAVE", "")
+# Sincronizador SQL de renglones (Profit): marca los renglones de la nota como
+# 100% cargados en SQL Server ANTES del cierre en registro.php, para que el PHP
+# Legacy no responda "Faltan articulos por cargar" ni envíe la nota a revisión.
+_prep_renglones_sync = ProfitRenglonesSync()
+# Conector NATIVO MySQL del legacy (ARA_SYNC, directiva v3.30): confirma
+# despacho/chequeo DIRECTAMENTE en la BD MySQL (192.168.4.148, credenciales
+# MYSQL_* del .env, pool limitado por MYSQL_CONNECTION_LIMIT). Si la red del
+# servidor .148 limita la conexión directa, el adaptador conserva el respaldo
+# HTTP (PHPSESSID + POST a registro.php) — ver LegacyPHPAdapter._confirmar_mysql.
+_prep_mysql_sync = LegacyMySQLConnector()
+if USE_DIRECT_SQL:
+    _prep_repo = ProfitSQLAdapter()
+    print("🧩 Preparación: MODO SQL DIRECTO PROFIT (requiere credenciales activas)")
+else:
+    _prep_repo = LegacyPHPAdapter(
+        LEGACY_API_URL,
+        renglones_sync=_prep_renglones_sync,
+        mysql_connector=_prep_mysql_sync,
+    )
+    print(f"🧩 Preparación: MODO LEGACY PHP ({LEGACY_API_URL}) + sync renglones Profit")
+# Fuente SQL directa de notas SAN CRISTÓBAL (serie 'A...' → CRISTM25,
+# not_dep/reng_nd): se usa SIEMPRE que el código traiga serie 'A' o que el
+# Legacy no encuentre la nota, sin importar USE_DIRECT_SQL.
+_prep_repo_sc = ProfitSQLAdapter()
+_prep_local_store = SqliteNotaStore()
+_prep_service = PreparationService(_prep_repo, _prep_local_store, repositorio_sc=_prep_repo_sc)
+register_preparation_routes(app, _prep_service)
+
+# -----------------------------------------------------------------------------
+# Registro del módulo HEXAGONAL DE RUTAS (rutas/) — REALIZAR RUTA
+# Repo SQLite local (sub_rutas_finalizadas) + Legacy /visor/ (lista.php/registro.php)
+# -----------------------------------------------------------------------------
+from rutas import (
+    RouteService,
+    SqliteRouteRepository,
+    LegacyRouteAdapter,
+    register_routes_hex_routes,
+)
+_route_repo = SqliteRouteRepository()
+_route_legacy = LegacyRouteAdapter(LEGACY_API_URL, clave_visor=LEGACY_VISOR_CLAVE)
+# adapter_legacy_bqto se crea perezoso dentro de RouteService (ver
+# rutas/application/route_service.py) apuntando a ARA_PUENTE_BQTO_URL —
+# mismo visor legacy, consultado vía el puente que corre en una máquina de
+# la red de BQTO (bin/puente_visor_bqto.ps1), porque el Apache filtra los
+# datos según la IP de origen de quien consulta (v4.53).
+_route_service = RouteService(_route_repo, _route_legacy, mysql_sync=_prep_mysql_sync)
+register_routes_hex_routes(app, _route_service)
+print(f"🚚 Módulo REALIZAR RUTA: MODO LEGACY /visor/ ({LEGACY_API_URL})")
+# getattr (no acceso directo a _legacy_bqto._puente_url): el tipo estático de
+# _legacy_bqto es RouteLegacyPort (puerto abstracto), que no declara ese
+# atributo privado del adaptador concreto — Pylance lo marcaba como
+# reportAttributeAccessIssue. LegacyRouteAdapter expone puente_url como
+# propiedad pública para este caso.
+_puente_bqto = getattr(_route_service._legacy_bqto, 'puente_url', None)
+print(f"🚚 Módulo REALIZAR RUTA (BQTO): vía puente {_puente_bqto or '(no configurado)'}")
+
+# Módulo EMBALAJE: consulta y registro por POST directo al PHP legacy
+# (actualizar_nota_embalaje.php) — prevalece sobre lista.php cuando la nota
+# no existe en la BD local. Al finalizar un embalaje se emite el evento
+# 'embalaje.finalizado' hacia el bus interno (rutas.application.event_bus)
+# para vincular la nota empacada al Rutagrama activo automáticamente.
+from rutas.infrastructure.web.embalaje_router import register_embalaje_routes
+from rutas.application.event_bus import get_event_bus
+register_embalaje_routes(app, _route_legacy, event_bus=get_event_bus(), mysql_sync=_prep_mysql_sync)
+print(f"📦 Módulo EMBALAJE: POST directo a {LEGACY_API_URL}/gestion_produc_bqmt/actualizar_nota_embalaje.php + confirmación MySQL directa (gestion + rep_not.estatus)")
+
+# -----------------------------------------------------------------------------
+# Registro del VISOR DE ARTÍCULOS HÍBRIDO (visor_articulos/) — motor en memoria
+# Endpoint síncrono POST /api/visor/buscar (latencia < 10 ms por consulta).
+# Reemplaza la ruta legacy /api/vision/escanear que dependía de IA de visión
+# remota (NVIDIA NIM / Ollama) y la búsqueda SQL de /api/preparacion.
+# -----------------------------------------------------------------------------
+try:
+    from visor_articulos.application.visor_routes import register_visor_routes
+    register_visor_routes(app)
+    print("🔍 VISOR HÍBRIDO registrado: POST /api/visor/buscar (síncrono en memoria)", flush=True)
+except Exception as e:
+    import traceback as tb
+    tb.print_exc()
+    print(f"⚠️ VISOR HÍBRIDO no disponible: {e}", flush=True)
+
 @app.after_request
 def monitorear_trafico(response):
-    print(f"➔ {request.method} {request.path} | Código Estado: {response.status_code}")
+    print(
+        f"👉 [{request.method}] {request.path} — IP: {request.remote_addr}",
+        flush=True,
+    )
     return response
 
 # =============================================================================
@@ -156,6 +345,33 @@ def get_db_connection():
     return conn
 
 # =============================================================================
+# IMÁGENES DE PRODUCTOS (CDN cristmedicals) — URL dinámica por co_art
+# =============================================================================
+def obtener_url_imagen(co_art):
+    """Resuelve la URL CDN de la imagen del artículo a partir de su co_art."""
+    return f"https://imagenes.cristmedicals.com/imagenes-v3/imagenes/{str(co_art or '').strip().upper()}.jpg"
+
+# =============================================================================
+# MIGRACIÓN IMAGEN_URL: columna en stock_maestro (si no existe)
+# =============================================================================
+def migrar_imagen_url_stock():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA table_info(stock_maestro)")
+        columnas = [col['name'] for col in cursor.fetchall()]
+        if 'imagen_url' not in columnas:
+            cursor.execute("ALTER TABLE stock_maestro ADD COLUMN imagen_url TEXT DEFAULT ''")
+            conn.commit()
+            print("[IMAGENES] Columna imagen_url agregada a stock_maestro.")
+        else:
+            print("[IMAGENES] Columna imagen_url ya existía en stock_maestro.")
+    finally:
+        conn.close()
+
+migrar_imagen_url_stock()
+
+# =============================================================================
 # MIGRACIÓN RBAC: permisos por defecto para usuarios existentes
 # =============================================================================
 def migrar_permisos_usuarios():
@@ -183,6 +399,59 @@ def migrar_permisos_usuarios():
         conn.close()
 
 migrar_permisos_usuarios()
+
+# =============================================================================
+# MIGRACIÓN RUTAS: es_responsable_ruta + ruta_asignada (módulo REALIZAR RUTA)
+# =============================================================================
+def migrar_columnas_ruta_usuarios():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA table_info(usuarios)")
+        columnas = [col['name'] for col in cursor.fetchall()]
+        if 'es_responsable_ruta' not in columnas:
+            cursor.execute("ALTER TABLE usuarios ADD COLUMN es_responsable_ruta INTEGER DEFAULT 0")
+            conn.commit()
+        if 'ruta_asignada' not in columnas:
+            cursor.execute("ALTER TABLE usuarios ADD COLUMN ruta_asignada TEXT DEFAULT ''")
+            conn.commit()
+        # Backfill: los responsables de ruta existentes pasan a ser responsables macro
+        cursor.execute(
+            "UPDATE usuarios SET es_responsable_ruta = 1 "
+            "WHERE es_responsable_ruta = 0 AND is_route_responsible = 1"
+        )
+        conn.commit()
+        print("[RUTAS] Columnas es_responsable_ruta/ruta_asignada verificadas + backfill OK.")
+    except Exception as e:
+        print(f"[RUTAS] Advertencia migración columnas ruta: {e}")
+    finally:
+        conn.close()
+
+migrar_columnas_ruta_usuarios()
+
+# =============================================================================
+# MIGRACIÓN PERFIL: foto_perfil + descripcion (tarjeta de visualización
+# individual — se muestra a los demás usuarios en sus chats)
+# =============================================================================
+def migrar_columnas_perfil_usuarios():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA table_info(usuarios)")
+        columnas = [col['name'] for col in cursor.fetchall()]
+        if 'foto_perfil' not in columnas:
+            cursor.execute("ALTER TABLE usuarios ADD COLUMN foto_perfil TEXT DEFAULT ''")
+            conn.commit()
+        if 'descripcion' not in columnas:
+            cursor.execute("ALTER TABLE usuarios ADD COLUMN descripcion TEXT DEFAULT ''")
+            conn.commit()
+        print("[PERFIL] Columnas foto_perfil/descripcion verificadas OK.")
+    except Exception as e:
+        print(f"[PERFIL] Advertencia migración columnas perfil: {e}")
+    finally:
+        conn.close()
+
+migrar_columnas_perfil_usuarios()
 
 # =============================================================================
 # SISTEMA DE SEGURIDAD UNIFICADO (Sincronización Total)
@@ -277,20 +546,50 @@ def guardar_usuario_servidor():
         permisos = json.dumps(data.get('permisos', [])) # Guardamos la lista como texto JSON en SQL
         color = data.get('color', '#3b82f6')
         is_route_responsible = 1 if data.get('isRouteResponsible') else 0
+        es_responsable_ruta = 1 if data.get('esResponsableRuta') else is_route_responsible
+        ruta_asignada = str(data.get('rutaAsignada', '') or '').strip()
 
         conn = get_db_connection()
         cursor = conn.cursor()
         
         # INSERT OR REPLACE evita duplicados; si el ID existe, lo actualiza en caliente sin romper nada
         cursor.execute("""
-            INSERT OR REPLACE INTO usuarios (id, nombre, contrasena, rol, permisos, color, is_route_responsible)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (uid, nombre, contrasena, rol, permisos, color, is_route_responsible))
+            INSERT OR REPLACE INTO usuarios (id, nombre, contrasena, rol, permisos, color, is_route_responsible, es_responsable_ruta, ruta_asignada)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (uid, nombre, contrasena, rol, permisos, color, is_route_responsible, es_responsable_ruta, ruta_asignada))
         
         conn.commit()
         conn.close()
         
         return jsonify({"status": "success", "mensaje": "Usuario guardado y sincronizado en SQL con éxito"})
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": f"Error en base de datos: {str(e)}"}), 500
+
+
+@app.route('/api/usuarios/eliminar', methods=['POST'])
+def eliminar_usuario_servidor():
+    """Elimina un usuario por id. BUG REAL detectado en vivo (v4.56): el
+    frontend siempre llamó a este endpoint (eliminarUsuario() en
+    index.html) pero nunca se construyó del lado del servidor — 404 en
+    cada intento de borrar un operador desde Gestión de Usuarios."""
+    try:
+        data = request.get_json(silent=True) or {}
+        uid = str(data.get('id', '')).strip().upper()
+        if not uid:
+            return jsonify({"status": "error", "mensaje": "ID obligatorio"}), 400
+        if uid in ('ADMIN1', 'ADMIN'):
+            return jsonify({"status": "error", "mensaje": "No se puede eliminar el usuario administrador."}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM usuarios WHERE UPPER(id) = ?", (uid,))
+        eliminado = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+
+        if not eliminado:
+            return jsonify({"status": "error", "mensaje": f"Usuario {uid} no encontrado."}), 404
+        return jsonify({"status": "success", "mensaje": f"Usuario {uid} eliminado."})
     except Exception as e:
         return jsonify({"status": "error", "mensaje": f"Error en base de datos: {str(e)}"}), 500
 
@@ -312,6 +611,22 @@ def obtener_usuarios():
                 permisos_list = []
             
             # Reconstruimos el formato que tu frontend ya conoce para que no se rompa nada arriba
+            try:
+                es_resp_ruta = bool(row['es_responsable_ruta'])
+            except (KeyError, IndexError):
+                es_resp_ruta = bool(row['is_route_responsible'])
+            try:
+                ruta_asig = row['ruta_asignada'] or ''
+            except (KeyError, IndexError):
+                ruta_asig = ''
+            try:
+                foto_perfil = row['foto_perfil'] or ''
+            except (KeyError, IndexError):
+                foto_perfil = ''
+            try:
+                descripcion = row['descripcion'] or ''
+            except (KeyError, IndexError):
+                descripcion = ''
             lista_usuarios.append({
                 "id": row['id'],
                 "nombre": row['nombre'],
@@ -319,12 +634,48 @@ def obtener_usuarios():
                 "rol": row['rol'],
                 "permisos": permisos_list,
                 "color": row['color'],
-                "isRouteResponsible": bool(row['is_route_responsible'])
+                "isRouteResponsible": bool(row['is_route_responsible']),
+                "esResponsableRuta": es_resp_ruta,
+                "rutaAsignada": ruta_asig,
+                "fotoPerfil": foto_perfil,
+                "descripcion": descripcion
             })
-            
+
         return jsonify({"status": "success", "usuarios": lista_usuarios})
     except Exception as e:
         return jsonify({"status": "error", "mensaje": f"Error al leer usuarios: {str(e)}"}), 500
+
+
+@app.route('/api/usuarios/perfil', methods=['POST'])
+def actualizar_perfil_usuario():
+    """Actualiza la tarjeta de visualización individual del propio usuario
+    (foto + descripción única) — es lo que ven los demás usuarios de él en
+    sus chats (lista de contactos, encabezado de conversación, etc.)."""
+    try:
+        data = request.json or {}
+        uid = str(data.get('id', '')).strip()
+        if not uid:
+            return jsonify({"status": "error", "mensaje": "ID de usuario obligatorio"}), 400
+
+        foto_perfil = str(data.get('fotoPerfil', '') or '')
+        descripcion = str(data.get('descripcion', '') or '').strip()[:200]
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE usuarios SET foto_perfil = ?, descripcion = ? WHERE id = ?",
+            (foto_perfil, descripcion, uid)
+        )
+        actualizado = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+
+        if not actualizado:
+            return jsonify({"status": "error", "mensaje": "Usuario no encontrado"}), 404
+        return jsonify({"status": "success", "mensaje": "Perfil actualizado",
+                         "fotoPerfil": foto_perfil, "descripcion": descripcion})
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": f"Error actualizando perfil: {str(e)}"}), 500
 
 
 @app.route('/api/usuarios/actualizar_permisos', methods=['POST'])
@@ -354,6 +705,13 @@ def login():
         if not os.path.exists(DB_PATH):
             return jsonify({"status": "error", "mensaje": "Base de datos no encontrada"}), 500
 
+        # Multi-Sede: garantiza la columna usuarios.sede (migración idempotente)
+        # para inyectar el sede_id ('SC' | 'BQTO') en el objeto autenticado.
+        try:
+            asegurar_columna_sede()
+        except Exception:
+            pass
+
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM usuarios WHERE UPPER(id) = ?", (uid,))
@@ -366,15 +724,30 @@ def login():
                     permisos_list = json.loads(user_row['permisos']) if user_row['permisos'] else []
                 except:
                     permisos_list = []
+                sede_raw = user_row['sede'] if 'sede' in user_row.keys() else ''
+                try:
+                    sede = normalizar_sede(sede_raw) or "BQTO"
+                except Exception:
+                    sede = "BQTO"
 
+                # BUG DE SEGURIDAD real corregido (24/08): antes el login no
+                # emitía ningún token — el frontend reenviaba `es_admin` a
+                # mano en cada request de reportería, y el server confiaba
+                # ciegamente en ese valor (cualquiera podía mandar
+                # es_admin=true). Ahora se firma un token con el rol REAL
+                # leído de la BD; los endpoints sensibles lo verifican en
+                # vez de confiar en lo que mande el cliente.
+                token = emitir_token_sesion(user_row['id'], user_row['nombre'], user_row['rol'], permisos_list)
                 return jsonify({
-                    "status": "success", 
+                    "status": "success",
+                    "token": token,
                     "user": {
                         "id": user_row['id'],
                         "nombre": user_row['nombre'],
                         "rol": user_row['rol'],
                         "permisos": permisos_list,
                         "color": user_row['color'],
+                        "sede": sede,
                         "isRouteResponsible": bool(user_row['is_route_responsible'])
                     }
                 })
@@ -486,7 +859,7 @@ def registrar_puntos(usuario, modulo, referencia_id, cantidad_renglones):
 #====================================================================
 # Dasboard Profesional de Desempeño en tiempo real .
 #======================================================================
-# Caché TTL para Dashboard (30s) — evita consultas repetidas sin datos frescos
+# Caché TTL para Dashboard (10s) — consultas frescas en tiempo real sin saturar SQLite
 _dashboard_cache = {"data": None, "timestamp": 0}
 
 @app.route('/api/dashboard/stats', methods=['GET'])
@@ -494,10 +867,10 @@ def obtener_estadisticas_dashboard():
     """
     Consulta la tabla log_puntos para generar métricas reales de gamificación.
     Acepta filtros opcionales: fecha_inicio, fecha_fin (YYYY-MM-DD)
-    Incluye caché TTL de 30s para evitar consultas repetitivas.
+    Incluye caché TTL de 10s; se invalida al registrar puntos de preparación.
     """
     ahora = time.time()
-    if _dashboard_cache["data"] and (ahora - _dashboard_cache["timestamp"] < 30):
+    if _dashboard_cache["data"] and (ahora - _dashboard_cache["timestamp"] < 10):
         return jsonify(_dashboard_cache["data"])
     try:
         # Leer filtros de fecha
@@ -507,26 +880,35 @@ def obtener_estadisticas_dashboard():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Construir WHERE para filtros de fecha
+        # Construir WHERE para filtros de fecha (alias lp en todas las consultas)
         where_fecha = ""
         params = []
         if fecha_inicio and fecha_fin:
-            where_fecha = "WHERE DATE(fecha_registro) BETWEEN ? AND ?"
+            where_fecha = "WHERE DATE(lp.fecha_registro) BETWEEN ? AND ?"
             params = [fecha_inicio, fecha_fin]
         elif fecha_inicio:
-            where_fecha = "WHERE DATE(fecha_registro) >= ?"
+            where_fecha = "WHERE DATE(lp.fecha_registro) >= ?"
             params = [fecha_inicio]
         elif fecha_fin:
-            where_fecha = "WHERE DATE(fecha_registro) <= ?"
+            where_fecha = "WHERE DATE(lp.fecha_registro) <= ?"
             params = [fecha_fin]
         
         # 1. Resumen global
         cursor.execute(f'''
             SELECT 
                 COALESCE(COUNT(*), 0) as total_operaciones,
-                COALESCE(SUM(puntos_ganados), 0) as total_puntos,
-                COUNT(DISTINCT usuario) as total_usuarios
-            FROM log_puntos
+                COALESCE(SUM(lp.puntos_ganados), 0) as total_puntos,
+                COUNT(DISTINCT lp.usuario) as total_usuarios,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'picking' THEN lp.puntos_ganados ELSE 0 END), 0) as puntos_preparacion,
+                (SELECT COUNT(*) FROM notas_entrega ne
+                 WHERE DATE(ne.fecha_completada) = DATE('now','localtime')) as notas_preparadas_hoy,
+                (SELECT COUNT(DISTINCT referencia_id) FROM log_puntos
+                 WHERE modulo = 'embalaje'
+                 AND DATE(fecha_registro) = DATE('now','localtime')) as notas_embaladas_hoy,
+                (SELECT COALESCE(SUM(cant_cajas), 0) FROM movimientos_preparador
+                 WHERE accion = 'EMBALAJE'
+                 AND DATE(timestamp) = DATE('now','localtime')) as cajas_procesadas_hoy
+            FROM log_puntos lp
             {where_fecha}
         ''', params)
         resumen_row = cursor.fetchone()
@@ -534,21 +916,34 @@ def obtener_estadisticas_dashboard():
         total_puntos = resumen_row['total_puntos'] or 0
         
         # 2. Ranking por usuario (agregado desde log_puntos) - CON DESGLOSE POR MÓDULO
+        #    Nombre real desde usuarios + notas preparadas HOY desde notas_entrega.
+        #    log_puntos.usuario guarda id o nombre según el módulo → JOIN dual.
         cursor.execute(f'''
             SELECT 
-                usuario,
+                COALESCE(u.id, lp.usuario) as usuario_id,
+                COALESCE(u.nombre, lp.usuario) as nombre,
                 COUNT(*) as operaciones,
-                COALESCE(SUM(puntos_ganados), 0) as puntos_totales,
-                COALESCE(SUM(cantidad_renglones), 0) as total_renglones,
-                COALESCE(SUM(CASE WHEN modulo = 'picking' THEN puntos_ganados ELSE 0 END), 0) as puntos_picking,
-                COALESCE(SUM(CASE WHEN modulo = 'picking' THEN cantidad_renglones ELSE 0 END), 0) as renglones_picking,
-                COALESCE(SUM(CASE WHEN modulo = 'chequeo' THEN puntos_ganados ELSE 0 END), 0) as puntos_chequeo,
-                COALESCE(SUM(CASE WHEN modulo = 'chequeo' THEN cantidad_renglones ELSE 0 END), 0) as renglones_chequeo,
-                COALESCE(SUM(CASE WHEN modulo = 'inventario' THEN puntos_ganados ELSE 0 END), 0) as puntos_inventario,
-                COALESCE(SUM(CASE WHEN modulo = 'inventario' THEN cantidad_renglones ELSE 0 END), 0) as renglones_inventario
-            FROM log_puntos
+                COALESCE(SUM(lp.puntos_ganados), 0) as puntos_totales,
+                COALESCE(SUM(lp.cantidad_renglones), 0) as total_renglones,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'picking' THEN lp.puntos_ganados ELSE 0 END), 0) as puntos_picking,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'picking' THEN lp.cantidad_renglones ELSE 0 END), 0) as renglones_picking,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'chequeo' THEN lp.puntos_ganados ELSE 0 END), 0) as puntos_chequeo,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'chequeo' THEN lp.cantidad_renglones ELSE 0 END), 0) as renglones_chequeo,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'inventario' THEN lp.puntos_ganados ELSE 0 END), 0) as puntos_inventario,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'inventario' THEN lp.cantidad_renglones ELSE 0 END), 0) as renglones_inventario,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'embalaje' THEN lp.puntos_ganados ELSE 0 END), 0) as puntos_embalaje,
+                COALESCE(SUM(CASE WHEN lp.modulo = 'embalaje' THEN lp.cantidad_renglones ELSE 0 END), 0) as renglones_embalaje,
+                COALESCE(nh.notas_hoy, 0) as notas_hoy
+            FROM log_puntos lp
+            LEFT JOIN usuarios u ON (u.id = lp.usuario OR UPPER(u.nombre) = UPPER(lp.usuario))
+            LEFT JOIN (
+                SELECT preparador_id, COUNT(*) as notas_hoy
+                FROM notas_entrega
+                WHERE DATE(fecha_completada) = DATE('now','localtime')
+                GROUP BY preparador_id
+            ) nh ON u.id IS NOT NULL AND nh.preparador_id = u.id
             {where_fecha}
-            GROUP BY usuario
+            GROUP BY COALESCE(u.id, lp.usuario)
             ORDER BY puntos_totales DESC
         ''', params)
         ranking_rows = cursor.fetchall()
@@ -556,7 +951,8 @@ def obtener_estadisticas_dashboard():
         ranking_final = []
         for row in ranking_rows:
             ranking_final.append({
-                "nombre": row['usuario'],
+                "usuario_id": row['usuario_id'],
+                "nombre": row['nombre'],
                 "rol": "Operador",
                 "operaciones": row['operaciones'],
                 "precision": 100.0,
@@ -567,13 +963,16 @@ def obtener_estadisticas_dashboard():
                 "puntos_chequeo": round(row['puntos_chequeo'], 2),
                 "renglones_chequeo": row['renglones_chequeo'],
                 "puntos_inventario": round(row['puntos_inventario'], 2),
-                "renglones_inventario": row['renglones_inventario']
+                "renglones_inventario": row['renglones_inventario'],
+                "puntos_embalaje": round(row['puntos_embalaje'], 2),
+                "renglones_embalaje": row['renglones_embalaje'],
+                "notas_hoy": row['notas_hoy']
             })
         
         operador_destacado = ranking_final[0]["nombre"] if ranking_final else "N/A"
         
         # 3. Gráfico semanal (últimos 6 días con operaciones)
-        where_grafico = "WHERE fecha_registro >= DATE('now', '-6 days')"
+        where_grafico = "WHERE lp.fecha_registro >= DATE('now', '-6 days')"
         params_grafico = []
         if where_fecha:
             where_grafico += " " + where_fecha.replace("WHERE", "AND")
@@ -581,12 +980,12 @@ def obtener_estadisticas_dashboard():
         
         cursor.execute(f'''
             SELECT 
-                DATE(fecha_registro) as fecha,
+                DATE(lp.fecha_registro) as fecha,
                 COUNT(*) as operaciones,
-                SUM(puntos_ganados) as puntos_dia
-            FROM log_puntos
+                SUM(lp.puntos_ganados) as puntos_dia
+            FROM log_puntos lp
             {where_grafico}
-            GROUP BY DATE(fecha_registro)
+            GROUP BY DATE(lp.fecha_registro)
             ORDER BY fecha DESC
         ''', params_grafico)
         grafico_rows = cursor.fetchall()
@@ -606,12 +1005,15 @@ def obtener_estadisticas_dashboard():
             grafico_fechas = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"]
             grafico_operaciones = [0, 0, 0, 0, 0, 0]
         
-        # 4. Incidencias recientes (últimas 10)
+        # 4. Incidencias recientes (últimas 10) - nombre real del operador
         cursor.execute(f'''
-            SELECT usuario, modulo, referencia_id, puntos_ganados, fecha_registro
-            FROM log_puntos
+            SELECT COALESCE(u.id, lp.usuario) as usuario_id,
+                   COALESCE(u.nombre, lp.usuario) as usuario,
+                   lp.modulo, lp.referencia_id, lp.puntos_ganados, lp.fecha_registro
+            FROM log_puntos lp
+            LEFT JOIN usuarios u ON (u.id = lp.usuario OR UPPER(u.nombre) = UPPER(lp.usuario))
             {where_fecha}
-            ORDER BY fecha_registro DESC
+            ORDER BY lp.fecha_registro DESC
             LIMIT 10
         ''', params)
         incidencias_rows = cursor.fetchall()
@@ -620,6 +1022,7 @@ def obtener_estadisticas_dashboard():
         for row in incidencias_rows:
             incidencias_registradas.append({
                 "usuario": row['usuario'],
+                "usuario_id": row['usuario_id'],
                 "rol": "Operador",
                 "fecha": row['fecha_registro'],
                 "estado": "exitoso" if row['puntos_ganados'] > 0 else "sin_puntos",
@@ -634,7 +1037,11 @@ def obtener_estadisticas_dashboard():
                 "totalOperaciones": total_ops,
                 "tasaPrecision": 100.0,
                 "tiempoPromedio": "4m 12s",
-                "operadorDestacado": operador_destacado
+                "operadorDestacado": operador_destacado,
+                "notasPreparadasHoy": resumen_row['notas_preparadas_hoy'] or 0,
+                "puntosPreparacion": round(resumen_row['puntos_preparacion'] or 0, 2),
+                "notasEmbaladasHoy": resumen_row['notas_embaladas_hoy'] or 0,
+                "cajasProcesadasHoy": resumen_row['cajas_procesadas_hoy'] or 0
             },
             "ranking": ranking_final,
             "graficoFechas": grafico_fechas,
@@ -647,7 +1054,7 @@ def obtener_estadisticas_dashboard():
     except Exception as e:
         print(f"❌ Error en dashboard stats: {e}")
         return jsonify({
-            "resumen": {"totalOperaciones": 0, "tasaPrecision": 100.0, "tiempoPromedio": "0m 0s", "operadorDestacado": "N/A"},
+            "resumen": {"totalOperaciones": 0, "tasaPrecision": 100.0, "tiempoPromedio": "0m 0s", "operadorDestacado": "N/A", "notasPreparadasHoy": 0, "puntosPreparacion": 0, "notasEmbaladasHoy": 0, "cajasProcesadasHoy": 0},
             "ranking": [],
             "graficoFechas": ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
             "graficoOperaciones": [0, 0, 0, 0, 0, 0],
@@ -1390,25 +1797,38 @@ def api_preparacion():
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Consulta principal a Profit Plus (Tu lógica original + Inyección de deposito_bqto)
+        # 1. Consulta principal a Profit Plus (Total / S/C / BQTO + imagen CDN)
         if query:
             cursor.execute("""
-                SELECT codigo AS co_art, descripcion AS art_des, campo7 AS ubicacion, 
-                       stock_maestro AS stock_act, deposito_bqto AS stock_bulto 
+                SELECT codigo AS co_art, descripcion AS art_des, campo7 AS ubicacion,
+                       stock_maestro AS stock_total, stock_act AS stock_sc,
+                       deposito_bqto, despacho_bqto
                 FROM stock_maestro 
                 WHERE LOWER(codigo) LIKE ? OR LOWER(descripcion) LIKE ? 
                 LIMIT 50
             """, (f"%{query}%", f"%{query}%"))
         else:
             cursor.execute("""
-                SELECT codigo AS co_art, descripcion AS art_des, campo7 AS ubicacion, 
-                       stock_maestro AS stock_act, deposito_bqto AS stock_bulto 
+                SELECT codigo AS co_art, descripcion AS art_des, campo7 AS ubicacion,
+                       stock_maestro AS stock_total, stock_act AS stock_sc,
+                       deposito_bqto, despacho_bqto
                 FROM stock_maestro 
                 LIMIT 20
             """)
         
         filas = cursor.fetchall()
         items = [dict(f) for f in filas]
+        
+        # 2. Desglose de stock por almacén (BQTO / S/C / Total) + imagen CDN dinámica
+        for item in items:
+            bqto_dep = item.get('deposito_bqto') or 0
+            bqto_desp = item.get('despacho_bqto') or 0
+            item['stock_bqto'] = bqto_dep + bqto_desp
+            item['stock_sc'] = item.get('stock_sc') or 0
+            item['stock_total'] = item.get('stock_total') or 0
+            item['stock_act'] = item['stock_total']   # compat: frontend legacy
+            item['stock_bulto'] = bqto_dep            # compat: frontend legacy
+            item['imagen_url'] = obtener_url_imagen(item['co_art'])
         
         # 2. Inyección del historial de relocalizaciones físicas + ubicación pendiente
         for item in items:
@@ -1567,9 +1987,13 @@ def ubicaciones_por_categoria():
 
         # Convertir dicts anidados a listas
         resultado = []
+
+        def _nro_etiqueta(estante: dict) -> int:
+            m = _re.search(r'(\d+)', str(estante.get('etiqueta', '0') or '0'))
+            return int(m.group(1)) if m else 0
+
         for ck, cv in sorted(categorias.items()):
-            estantes_list = sorted(cv['estantes'].values(),
-                                   key=lambda x: int(_re.search(r'(\d+)', x.get('etiqueta','0')).group(1)) if _re.search(r'(\d+)', x.get('etiqueta','0')) else 0)
+            estantes_list = sorted(cv['estantes'].values(), key=_nro_etiqueta)
             resultado.append({
                 'categoria_key': ck,
                 'categoria_nombre': cv['nombre'],
@@ -1608,89 +2032,118 @@ def preferencia_tutorial():
 @app.route('/api/reportes/discrepancias', methods=['GET'])
 def reportes_discrepancias():
     """
-    Retorna discrepancias de stock con filtros opcionales y control RBAC.
+    Retorna discrepancias de stock de las Auditorías de Inventario (REP-*.json
+    de brain_knowledge/reportes). Una fila por artículo discrepante (estado != 'OK').
     Query params: fecha_inicio, fecha_fin, usuario, usuario_activo, es_admin
     - Si es_admin=false o no se envía: forza filtro case-insensitive por usuario_activo.
     """
-    fecha_inicio = request.args.get('fecha_inicio', '')
-    fecha_fin = request.args.get('fecha_fin', '')
-    usuario = request.args.get('usuario', '')
-    usuario_activo = request.args.get('usuario_activo', '')
-    es_admin = request.args.get('es_admin', 'false').lower() in ('true', '1', 'yes')
+    fecha_inicio = request.args.get('fecha_inicio', '').strip()
+    fecha_fin = request.args.get('fecha_fin', '').strip()
+    usuario = request.args.get('usuario', '').strip()
 
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
+    # BUG DE SEGURIDAD real corregido (24/08): es_admin/usuario_activo ya NO
+    # se toman del query param (el cliente podía mandar es_admin=true y ver
+    # los reportes de todos) — se derivan del token de sesión firmado en el
+    # login, verificado server-side.
+    sesion = verificar_token_sesion(request)
+    if sesion is None:
+        return jsonify({"status": "error", "mensaje": "Sesión inválida o expirada. Iniciá sesión de nuevo."}), 401
+    es_admin = sesion['es_admin']
+    usuario_activo = sesion['nombre'] or sesion['id']
 
-        where = ["1=1"]
-        params = []
+    if not os.path.isdir(REPORTES_FOLDER):
+        return jsonify({"status": "success", "data": [], "total": 0})
 
-        if not es_admin and usuario_activo:
-            where.append("(LOWER(ru.usuario) = LOWER(?) OR LOWER(ru.usuario) LIKE LOWER('%' || ? || '%'))")
-            params.append(usuario_activo)
-            params.append(usuario_activo)
-        elif es_admin and usuario and usuario != "Todos":
-            where.append("LOWER(ru.usuario) = LOWER(?)")
-            params.append(usuario)
+    resultados = []
+    for archivo_nombre in os.listdir(REPORTES_FOLDER):
+        if not archivo_nombre.upper().startswith('REP-') or not archivo_nombre.endswith('.json'):
+            continue
+        try:
+            with open(os.path.join(REPORTES_FOLDER, archivo_nombre), 'r', encoding='utf-8') as f:
+                reporte = json.load(f)
+        except Exception:
+            continue
 
-        if fecha_inicio:
-            where.append("ru.fecha >= ?")
-            params.append(fecha_inicio)
-        if fecha_fin:
-            where.append("ru.fecha <= ?")
-            params.append(fecha_fin + ' 23:59:59')
+        creador = str(reporte.get('usuario', '') or '').strip()
+        fecha_rep = str(reporte.get('fecha', '') or '').strip()
+        id_reporte = reporte.get('id') or archivo_nombre.replace('.json', '')
+        estante_rep = str(reporte.get('estante', 'General') or 'General')
 
-        sql_where = "WHERE " + " AND ".join(where)
+        # RBAC: no-admin solo ve sus propios reportes (case-insensitive)
+        if not es_admin:
+            if not usuario_activo or usuario_activo.upper() not in creador.upper():
+                continue
+        elif usuario and usuario != "Todos":
+            if usuario.upper() != creador.upper():
+                continue
 
-        cursor.execute(f"""
-            SELECT ru.id, ru.co_art, ru.usuario, ru.desde, ru.hacia,
-                   ru.fecha, sm.stock_maestro, sm.campo7,
-                   CASE WHEN sm.stock_maestro IS NULL THEN 1 ELSE 0 END as discrepancia
-            FROM reportes_ubicacion ru
-            LEFT JOIN stock_maestro sm ON sm.codigo = ru.co_art
-            {sql_where}
-            ORDER BY ru.fecha DESC
-            LIMIT 100
-        """, params)
+        # Filtros de fecha (los REP guardan fecha YYYY-MM-DD HH:MM:SS o AM/PM)
+        solo_fecha = fecha_rep[:10]
+        if fecha_inicio and solo_fecha < fecha_inicio:
+            continue
+        if fecha_fin and solo_fecha > fecha_fin:
+            continue
 
-        rows = cursor.fetchall()
-        conn.close()
-
-        resultados = []
-        for r in rows:
+        for det in reporte.get('detalles', []):
+            if not isinstance(det, dict):
+                continue
+            estado = str(det.get('estado', 'OK') or 'OK').upper()
+            if estado == 'OK':
+                continue
             resultados.append({
-                "id": r["id"],
-                "co_art": r["co_art"],
-                "usuario": r["usuario"],
-                "desde": r["desde"],
-                "hacia": r["hacia"],
-                "fecha": r["fecha"],
-                "stock_actual": float(r["stock_maestro"] or 0),
-                "ubicacion": r["campo7"] or "N/A",
-                "discrepancia": bool(r["discrepancia"])
+                "id": id_reporte,
+                "co_art": str(det.get('codigo', '') or ''),
+                "descripcion": str(det.get('descripcion', '') or ''),
+                "usuario": creador,
+                "ubicacion": str(det.get('ubicacion', '') or '') or estante_rep,
+                "fecha": fecha_rep,
+                "stock_actual": det.get('fisico', 0),
+                "stock_teorico": det.get('teorico', 0),
+                # Regla de negocio real (antes se perdía y todo se mostraba
+                # como "Discrepancia" genérica): FALTA = faltante en físico,
+                # SOBRA = sobrante en estante. 'OK' nunca llega aquí (filtrado
+                # arriba), así que este campo siempre es FALTA o SOBRA.
+                "estado": estado,
+                "discrepancia": True
             })
 
-        return jsonify({"status": "success", "data": resultados, "total": len(resultados)})
-
-    except Exception as e:
-        return jsonify({"status": "error", "mensaje": str(e)}), 500
+    resultados.sort(key=lambda r: str(r.get('fecha') or ''), reverse=True)
+    return jsonify({"status": "success", "data": resultados, "total": len(resultados)})
 
 
 @app.route('/api/reportes/trazabilidad', methods=['GET'])
 def reportes_trazabilidad():
     """
     Retorna movimientos de trazabilidad desde reportes_ubicacion con filtros opcionales y control RBAC.
-    Query params: fecha_inicio, fecha_fin, usuario, estado_profit, usuario_activo, es_admin
+    Query params: fecha_inicio, fecha_fin, usuario, estado_profit, usuario_activo, es_admin, co_art
     - Si es_admin=false o no se envía: forza filtro case-insensitive por usuario_activo (nombre completo o username).
     - Si es ES Admin: permite filtrar por parámetro usuario o ver todos.
+    - co_art (opcional): historial de ubicaciones de UN artículo puntual, sin filtro de usuario/RBAC
+      (consulta de solo-lectura por código, usada por la tool de supervisión).
     Columnas retornadas: mov_id, usuario, sku, desde, hacia, fecha, procesado_profit.
     """
     fecha_inicio = request.args.get('fecha_inicio', '')
     fecha_fin = request.args.get('fecha_fin', '')
     usuario = request.args.get('usuario', '')
     estado_profit = request.args.get('estado_profit', '')
-    usuario_activo = request.args.get('usuario_activo', '')
-    es_admin = request.args.get('es_admin', 'false').lower() in ('true', '1', 'yes')
+    co_art = request.args.get('co_art', '').strip()
+
+    # BUG DE SEGURIDAD real corregido (24/08): es_admin/usuario_activo ya NO
+    # se toman del query param para la consulta RBAC de un usuario — se
+    # derivan del token de sesión firmado en el login. Excepción: la
+    # consulta por co_art es un lookup de solo lectura por artículo (usado
+    # server-a-server por la tool de supervisión, sin sesión de usuario de
+    # por medio) y ya viene sin filtro de usuario por diseño — no se le
+    # exige token para no romper ese caso legítimo.
+    if co_art:
+        es_admin = True
+        usuario_activo = ''
+    else:
+        sesion = verificar_token_sesion(request)
+        if sesion is None:
+            return jsonify({"status": "error", "mensaje": "Sesión inválida o expirada. Iniciá sesión de nuevo."}), 401
+        es_admin = sesion['es_admin']
+        usuario_activo = sesion['nombre'] or sesion['id']
 
     try:
         conn = get_db_connection()
@@ -1699,7 +2152,7 @@ def reportes_trazabilidad():
         where = ["1=1"]
         params = []
 
-        if not es_admin and usuario_activo:
+        if not es_admin and usuario_activo and not co_art:
             # Case-insensitive: matching exact full name OR substring (for username-like values)
             where.append("(LOWER(ru.usuario) = LOWER(?) OR LOWER(ru.usuario) LIKE LOWER('%' || ? || '%'))")
             params.append(usuario_activo)
@@ -1717,6 +2170,9 @@ def reportes_trazabilidad():
         if estado_profit != '' and estado_profit != "Todos":
             where.append("COALESCE(ru.procesado_profit, 0) = ?")
             params.append(int(estado_profit))
+        if co_art:
+            where.append("LOWER(ru.co_art) = LOWER(?)")
+            params.append(co_art)
 
         sql_where = "WHERE " + " AND ".join(where)
 
@@ -2001,6 +2457,7 @@ def verificar_status_embalaje(factura_id):
 
             items_embalaje = [{"cod": str(art['co_art']), "des": art['art_des'], "pedida": 1} for art in articulos_reales]
             return jsonify({"status": "success", "factura": {"bar_code": str(factura_id), "cliente": datos.get('nombre', 'No disponible'), "preparador_id": datos.get('co_us_in', 'SISTEMA'), "items": items_embalaje}})
+        return jsonify({"status": "error", "mensaje": f"Estado '{estado_actual}' no válido para embalaje."}), 400
     except Exception as e:
         return jsonify({"status": "error", "mensaje": str(e)}), 500
 
@@ -2090,6 +2547,12 @@ def chat():
             obtener_reporte_top_productos,
             formatear_reporte_para_prompt,
             obtener_lecciones_aprendidas,
+            obtener_trazabilidad_nota,
+            obtener_historial_ubicacion,
+            es_consulta_nota,
+            es_consulta_historial_ubicacion,
+            formatear_trazabilidad_nota_para_prompt,
+            formatear_historial_ubicacion_para_prompt,
             SYSTEM_PROMPT_AUDITOR
         )
 
@@ -2099,6 +2562,24 @@ def chat():
             if reporte and "productos" in reporte and reporte["productos"]:
                 datos_producto_especifico = formatear_reporte_para_prompt(reporte)
                 entidad_detectada = "REPORTE"
+
+        # --- Herramientas de auditoría SOLO LECTURA: trazabilidad de NOTA y
+        #     historial de UBICACIÓN (PASO 1) ---
+        if not datos_producto_especifico and not imagen_b64:
+            import re as _re
+            _m_nota = _re.search(r'\b(\d{6,10})\b', user_msg)
+            if es_consulta_nota(user_msg) and _m_nota:
+                tn = obtener_trazabilidad_nota(_m_nota.group(1))
+                if tn and not tn.get("error"):
+                    datos_producto_especifico = formatear_trazabilidad_nota_para_prompt(tn)
+                    entidad_detectada = _m_nota.group(1)
+            elif es_consulta_historial_ubicacion(user_msg):
+                codigo_mov = detectar_codigo_articulo(user_msg)
+                if codigo_mov:
+                    hu = obtener_historial_ubicacion(codigo_mov)
+                    if hu and not hu.get("error"):
+                        datos_producto_especifico = formatear_historial_ubicacion_para_prompt(hu)
+                        entidad_detectada = codigo_mov
 
         if not datos_producto_especifico:
             # 1. Detectar si es NOTA o ARTÍCULO
@@ -2153,6 +2634,37 @@ def chat():
                     break
         except Exception as e:
             print(f"Error parseando productos en Chat: {e}")
+
+    # --- Skill SQL de SOLO LECTURA (ReAct): si ninguna herramienta fija
+    #     encontró datos, el LLM construye un SELECT sobre el esquema local
+    #     y los resultados reales se inyectan al prompt (nunca inventados) ---
+    if not datos_producto_especifico and not imagen_b64:
+        try:
+            from db_query_tool import (
+                es_consulta_sql_operativa,
+                generar_select_desde_mensaje,
+                ejecutar_consulta_sql_read_only,
+                formatear_resultados_para_prompt,
+            )
+            if es_consulta_sql_operativa(user_msg):
+                print(
+                    f"[SQL_SKILL] 🔎 Consulta operativa detectada: {user_msg[:80]}",
+                    flush=True,
+                )
+                gen = generar_select_desde_mensaje(user_msg)
+                if gen.get("status") == "ok":
+                    res = ejecutar_consulta_sql_read_only(gen["sql"])
+                    bloque = formatear_resultados_para_prompt(res)
+                    if bloque:
+                        datos_producto_especifico = bloque
+                        entidad_detectada = entidad_detectada or "consulta_sql"
+                        print(
+                            f"[SQL_SKILL] ✅ {res.get('total_filas', 0)} filas "
+                            f"inyectadas al prompt",
+                            flush=True,
+                        )
+        except Exception as e:
+            print(f"[SQL_SKILL] ⚠️ Skill SQL omitido: {str(e)[:120]}", flush=True)
 
     # --- Lecciones Aprendidas (Feedback Loop) ---
     lecciones = ""
@@ -2257,7 +2769,8 @@ def ia_audio():
         return jsonify({"status": "error", "mensaje": "No se recibió archivo de audio"}), 400
 
     audio_file = request.files['audio']
-    formato = audio_file.filename.rsplit('.', 1)[-1] if '.' in audio_file.filename else 'wav'
+    filename = audio_file.filename or ""
+    formato = filename.rsplit('.', 1)[-1] if '.' in filename else 'wav'
     datos_binarios = audio_file.read()
 
     if not datos_binarios:
@@ -2289,7 +2802,28 @@ def ia_audio():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Red de seguridad SSO (2026-08-21): el callback SSO del ERP CristMedicals
+    # quedó registrado en Auth Central apuntando a la raíz del dominio en vez
+    # de /auth/sso (INTEGRACION_SSO.md) — el JWT llegaba acá y se ignoraba,
+    # mostrando el login normal de ARA warehouse en vez de canjearlo hacia
+    # ARA-Intelligent. Mientras se corrige la URL del lado del ERP, si la raíz
+    # recibe un "token" se reenvía tal cual a /auth/sso (que sí lo verifica y
+    # redirige a /ara-inteligente) — no cambia nada para el resto de accesos
+    # normales a "/" (sin token, sigue sirviendo el warehouse igual).
+    if request.args.get('token'):
+        return redirect('/auth/sso?token=' + request.args.get('token'))
+
+    # Sin esto, el navegador (y a veces el túnel Cloudflare por el que
+    # entran desde celular) puede servir una copia vieja de index.html en
+    # vez de la última — confirmado en vivo: un cambio de frontend (nueva
+    # resolución de cámara, nuevo prompt de escaneo) no se reflejaba en el
+    # teléfono hasta forzar recarga. index.html cambia seguido en este
+    # proyecto, así que nunca debe cachearse.
+    resp = make_response(render_template('index.html'))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['Expires'] = '0'
+    return resp
 
 @app.route('/api/vision_search', methods=['POST'])
 def vision_search():
@@ -2383,9 +2917,67 @@ def vision_escanear():
 # =============================================================================
 # ENDPOINT /api/health — Telemetría y monitoreo del servidor
 # =============================================================================
+def _verificar_puerto_tcp(host: str, port, timeout: float = 1.5) -> bool:
+    """Chequeo liviano de alcanzabilidad (solo abre y cierra el socket, sin
+    autenticar) — usado por _estado_gb10() para no acoplar /api/health a
+    pyodbc/pymysql cuando esas libs no estén instaladas en este entorno."""
+    import socket
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def _estado_gb10() -> dict:
+    """Estado opcional de las piezas GB10 (Capa 2 — espejos locales — y el
+    motor de inferencia). La GB10 física todavía no está en sitio, así que
+    cada sub-chequeo reporta 'no_configurado' en vez de fallar cuando su env
+    var correspondiente no está seteada (caso normal hoy, en este entorno)."""
+    resultado = {}
+
+    host_sql = os.environ.get("PROFIT_SQL_HOST_LOCAL")
+    if host_sql:
+        puerto_sql = os.environ.get("PROFIT_SQL_PORT_LOCAL", "1433")
+        resultado["mirror_sqlserver"] = "ok" if _verificar_puerto_tcp(host_sql, puerto_sql) else "inaccesible"
+    else:
+        resultado["mirror_sqlserver"] = "no_configurado"
+
+    host_mysql = os.environ.get("MYSQL_HOST_LOCAL")
+    if host_mysql:
+        puerto_mysql = os.environ.get("MYSQL_PORT_LOCAL", "3306")
+        resultado["mirror_mysql"] = "ok" if _verificar_puerto_tcp(host_mysql, puerto_mysql) else "inaccesible"
+    else:
+        resultado["mirror_mysql"] = "no_configurado"
+
+    try:
+        from urllib.parse import urlparse
+        from gb10.inference.engine_config import MODEL_ROUTES
+
+        motores_configurados = any(
+            os.environ.get(f"{tarea}_INFERENCE_URL") for tarea in MODEL_ROUTES
+        )
+        resultado["inferencia"] = {}
+        for tarea, ruta in MODEL_ROUTES.items():
+            if not motores_configurados:
+                resultado["inferencia"][tarea] = "no_configurado (GB10 no desplegada)"
+                continue
+            parsed = urlparse(ruta["endpoint"])
+            alcanzable = _verificar_puerto_tcp(parsed.hostname, parsed.port or 80)
+            resultado["inferencia"][tarea] = (
+                f"ok ({ruta['model_name']} @ {ruta['endpoint']})" if alcanzable
+                else f"inaccesible ({ruta['endpoint']})"
+            )
+    except Exception as e:
+        resultado["inferencia"] = f"error al resolver rutas de inferencia: {e}"
+
+    return resultado
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Endpoint liviano de telemetría pública. Retorna estado de la DB, cola de visión y uptime."""
+    """Endpoint liviano de telemetría pública. Retorna estado de la DB, cola de visión, uptime
+    y (informativo) el estado de las piezas GB10 — espejos locales Capa 2 + motor de inferencia."""
     db_status = "connected (WAL mode)"
     try:
         conn = get_db_connection()
@@ -2399,7 +2991,8 @@ def health_check():
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "database": db_status,
         "vision_executor_queue": executor_vision._work_queue.qsize(),
-        "uptime_seconds": round(time.time() - _SERVER_START_TIME, 1)
+        "uptime_seconds": round(time.time() - _SERVER_START_TIME, 1),
+        "gb10": _estado_gb10(),
     })
 
 
@@ -2418,13 +3011,430 @@ def health_check():
 
 
 # =============================================================================
-# MÓDULO RUTAS — ORSAdapter + Endpoints /api/rutas/*
+# MÓDULO RUTAS — ORSAdapter + Endpoints /api/rutas/* (v4.56 — reconstruido)
+#
+# BUGS REALES del módulo original (detectados en vivo, ver auditoría v4.56):
+#   1. Consultaba notas_entrega.direccion/.latitud/.longitud — columnas que
+#      NUNCA existieron en el esquema real (CREATE TABLE de notas_hexagonal.py).
+#   2. Comparaba estado='embalado' (masculino) contra el CHECK real que usa
+#      'embalada' (femenino) — el filtro nunca traía nada.
+#   3. API key de ORS hardcodeada en texto plano en el código fuente.
+#   4. No existe NINGUNA coordenada GPS cargada en ningún lado del sistema
+#      (Profit ni MySQL) — solo direcciones de texto libre. Sin geocodificar
+#      primero, ORS no tiene con qué trazar nada.
+#
+# FIX v4.56 — pipeline real de datos (decisión del usuario: fuente EMBALADA =
+# MySQL legacy, coordenadas = geocodificar direcciones de Profit con ORS):
+#   rep_not.estatus='EMBALADA' (MySQL legacy 'barquisimeto')
+#     -> cod_nota se resuelve contra Profit not_ent (_consultar_nota_profit_readonly,
+#        YA EXISTE en ara_brain.py) -> co_cli
+#     -> co_cli se resuelve contra Profit clientes.direc1/direc2 (texto)
+#     -> la dirección de texto se geocodifica con ORS Geocoding API
+#        (mismo API key que Directions) -> lat/lon, cacheado en SQLite
+#        (geocodificacion_clientes) para no re-geocodificar en cada consulta.
 # =============================================================================
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjVlYmZmNzk4OGE3YzQ3MmNiZDk5NGI1MGE2MWJjMDhjIiwiaCI6Im11cm11cjY0In0="
+ORS_API_KEY = os.environ.get(
+    "ORS_API_KEY",
+    "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjVlYmZmNzk4OGE3YzQ3MmNiZDk5NGI1MGE2MWJjMDhjIiwiaCI6Im11cm11cjY0In0=",
+)
 
 # Almacén en memoria de posiciones de choferes
 _posiciones_choferes = {}
 _rutas_activas = {}
+
+_CAND_CLIENTE_DIRECCION = ["direc1", "direccion1", "direccion", "dir1"]
+_CAND_CLIENTE_DIRECCION2 = ["direc2", "direccion2", "dir2"]
+
+
+def _mysql_legacy_conn():
+    """Conexión a la BD MySQL legacy 'barquisimeto' (192.168.4.148) donde vive
+    rep_not — mismo host/credenciales que bin/actualizar_nota_hotfix.php."""
+    import pymysql
+    return pymysql.connect(
+        host=os.environ.get("MYSQL_HOST", "192.168.4.148"),
+        port=int(os.environ.get("MYSQL_PORT", "3306")),
+        user=os.environ.get("MYSQL_USER", ""),
+        password=os.environ.get("MYSQL_PASSWORD", ""),
+        database=os.environ.get("MYSQL_DATABASE_LEGACY", "barquisimeto"),
+        connect_timeout=8,
+        cursorclass=__import__("pymysql").cursors.DictCursor,
+    )
+
+
+def _listar_notas_embaladas_legacy(limite: int = 50) -> list:
+    """Notas con estatus='EMBALADA' en el legacy MySQL (rep_not), las más
+    recientes primero. Fuente de verdad elegida por el usuario para saber
+    qué está listo para el chofer (no notas_entrega/SQLite de ARA)."""
+    try:
+        conn = _mysql_legacy_conn()
+    except Exception as e:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT cod_nota, ruta, fec_impr FROM rep_not "
+                "WHERE estatus = 'EMBALADA' ORDER BY fec_impr DESC LIMIT %s",
+                (limite,),
+            )
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+
+def _resolver_direccion_cliente_profit(cur, co_cli: str) -> str:
+    """Dirección de texto del cliente en Profit clientes.direc1(+direc2),
+    con resolución dinámica de columnas (mismo patrón que
+    _consultar_nota_profit_readonly). Cursor pyodbc YA ABIERTO (se reutiliza
+    entre clientes de un mismo lote para no reconectar por cada nota)."""
+    cols = [r[0] for r in cur.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_NAME = 'clientes' AND TABLE_SCHEMA = 'dbo'"
+    ).fetchall()]
+    lower = {c.lower(): c for c in cols}
+
+    def _resolver(candidatas):
+        for c in candidatas:
+            if c.lower() in lower:
+                return lower[c.lower()]
+        return None
+
+    col1 = _resolver(_CAND_CLIENTE_DIRECCION)
+    col2 = _resolver(_CAND_CLIENTE_DIRECCION2)
+    if not col1:
+        return ""
+    expr = f"LTRIM(RTRIM(CAST({col1} AS NVARCHAR(200))))"
+    if col2:
+        expr += f" + ' ' + LTRIM(RTRIM(CAST({col2} AS NVARCHAR(200))))"
+    fila = cur.execute(
+        f"SELECT {expr} AS direccion FROM clientes WHERE co_cli = ?", co_cli
+    ).fetchone()
+    return (fila[0] or "").strip() if fila else ""
+
+
+# Bounding box real de Venezuela (con margen) — cualquier resultado de
+# geocodificación fuera de esto se descarta como error del geocoder, en vez
+# de mandarlo a ORS Directions. BUG REAL detectado en vivo: un resultado mal
+# geocodificado (probable "null island" [0,0] o un match en otro país pese
+# a boundary.country=VEN) hizo que ORS rechazara la ruta completa por
+# "distancia > 6000000 metros" — Venezuela mide ~1500km de punta a punta,
+# jamás debería dar esa distancia con coordenadas reales.
+_VE_LAT_MIN, _VE_LAT_MAX = 0.0, 13.0
+_VE_LON_MIN, _VE_LON_MAX = -74.0, -59.0
+
+
+def _coords_dentro_venezuela(lat: float, lon: float) -> bool:
+    return _VE_LAT_MIN <= lat <= _VE_LAT_MAX and _VE_LON_MIN <= lon <= _VE_LON_MAX
+
+
+def _geocodificar_texto_ors(texto: str):
+    """Una consulta cruda al Geocoding de ORS. None si no hay match, la API
+    falla, o el resultado cae fuera de Venezuela (geocode erróneo)."""
+    try:
+        resp = requests.get(
+            "https://api.openrouteservice.org/geocode/search",
+            params={
+                "api_key": ORS_API_KEY,
+                "text": texto,
+                "boundary.country": "VEN",
+                "size": 1,
+            },
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return None
+        features = resp.json().get("features", [])
+        if not features:
+            return None
+        lon, lat = features[0]["geometry"]["coordinates"]
+        lat, lon = float(lat), float(lon)
+        if not _coords_dentro_venezuela(lat, lon):
+            print(f"[ORS Geocoding] Descartado (fuera de Venezuela): {texto!r} -> ({lat}, {lon})", flush=True)
+            return None
+        return (lat, lon)
+    except Exception as e:
+        print(f"[ORS Geocoding] Error geocodificando {texto!r}: {e}", flush=True)
+        return None
+
+
+# Estados de Venezuela (+ Distrito Capital) — el fallback de geocodificación
+# SOLO se acepta si el resumen contiene el nombre de un estado real. BUG
+# REAL detectado en vivo: sin este filtro, el fallback (últimas 4 palabras)
+# a veces agarraba relleno genérico como "PARTE ALTA" (palabras descriptivas
+# de la dirección, no un topónimo) y el geocoder lo matcheaba con CONFIANZA
+# ALTA a un lugar real pero TOTALMENTE EQUIVOCADO (otro estado) — peor que
+# no geocodificar, porque manda al chofer con falsa seguridad al lugar
+# incorrecto. Con este filtro, "MENE DE MAUROA FALCON" sigue funcionando
+# (contiene "FALCON"); "...PARTE ALTA" ya no genera un match falso.
+_ESTADOS_VENEZUELA = {
+    "amazonas", "anzoategui", "apure", "aragua", "barinas", "bolivar",
+    "carabobo", "cojedes", "delta amacuro", "distrito capital", "falcon",
+    "guarico", "lara", "merida", "miranda", "monagas", "nueva esparta",
+    "portuguesa", "sucre", "tachira", "trujillo", "vargas", "yaracuy",
+    "zulia",
+}
+
+
+def _contiene_estado_venezolano(texto: str) -> bool:
+    t = _normalizar_acentos_ascii(texto.lower())
+    return any(estado in t for estado in _ESTADOS_VENEZUELA)
+
+
+def _normalizar_acentos_ascii(texto: str) -> str:
+    import unicodedata
+    return unicodedata.normalize("NFD", texto).encode("ascii", "ignore").decode("ascii")
+
+
+# =============================================================================
+# 5 GRUPOS DE RUTA DE CHOFER (v4.56, definidos por el usuario a partir del
+# catálogo REAL de macro-rutas/sub-rutas del visor legacy — GET
+# /api/rutas/catalogo — 14 macro-rutas agrupadas en 5 rutas de reparto):
+#
+#   1. ZULIA_TRUJILLO        -> Zulia, Trujillo
+#   2. LLANO_SANCRISTOBAL    -> Apure, Barinas, Táchira, Mérida, Portuguesa
+#                                (TODA Portuguesa EXCEPTO la sub-ruta
+#                                "PORTUGUESA ALTA - COJEDES", que va a Centro
+#                                — las otras 3 sub-rutas confirmadas: Capital
+#                                Alta, Capital Baja, Biscucuy)
+#   3. CENTRO                -> Carabobo, Aragua, Caracas (Distrito Capital/
+#                                Miranda/Vargas) + la sub-ruta Portuguesa-Cojedes
+#   4. BARQUISIMETO_FALCON   -> Lara, Falcón
+#   5. ENVIOS_ENTRE_SEDE     -> macro-ruta "ENVÍOS ENTRE ALMACENES" (no es
+#                                geografía de cliente, no aplica geocodificar)
+#
+# Como rep_not.ruta siempre viene vacío en la etapa EMBALADA (ver
+# RADIO_MAX_RUTA_KM más abajo), el grupo se infiere por REVERSE GEOCODING
+# de la coordenada ya resuelta del cliente (ORS Geocoding /reverse -> el
+# campo 'region' es el estado real, ej. "Táchira") — no hay forma de leer
+# el grupo directo de ninguna tabla en esta etapa del flujo.
+#
+# LIMITACIÓN CONOCIDA: la excepción de Portuguesa-Cojedes es a nivel de
+# LOCALIDAD (sub-ruta), no de estado — el reverse geocoding solo da el
+# estado ("Portuguesa"), no a qué sub-ruta pertenece. Por defecto TODO
+# Portuguesa cae en LLANO_SANCRISTOBAL (mayoría real: 3 de 4 sub-rutas);
+# los casos de la zona Cojedes de Portuguesa quedarán mal clasificados
+# hasta tener una lista de localidades o el campo de ruta real poblado.
+# =============================================================================
+_GRUPO_POR_ESTADO = {
+    "zulia": "ZULIA_TRUJILLO",
+    "trujillo": "ZULIA_TRUJILLO",
+    "apure": "LLANO_SANCRISTOBAL",
+    "barinas": "LLANO_SANCRISTOBAL",
+    "tachira": "LLANO_SANCRISTOBAL",
+    "merida": "LLANO_SANCRISTOBAL",
+    "portuguesa": "LLANO_SANCRISTOBAL",  # ver limitación conocida (Cojedes)
+    "carabobo": "CENTRO",
+    "aragua": "CENTRO",
+    "distrito capital": "CENTRO",
+    "miranda": "CENTRO",
+    "vargas": "CENTRO",
+    "lara": "BARQUISIMETO_FALCON",
+    "falcon": "BARQUISIMETO_FALCON",
+}
+
+_GRUPOS_RUTA_NOMBRES = {
+    "ZULIA_TRUJILLO": "Zulia / Trujillo",
+    "LLANO_SANCRISTOBAL": "Llano / San Cristóbal",
+    "CENTRO": "Centro (Carabobo/Aragua/Caracas)",
+    "BARQUISIMETO_FALCON": "Barquisimeto / Falcón",
+    "ENVIOS_ENTRE_SEDE": "Envíos entre sede",
+    "SIN_CLASIFICAR": "Sin clasificar",
+}
+
+
+def _grupo_ruta_desde_coords(lat: float, lon: float) -> str:
+    """Reverse geocoding ORS -> estado real -> grupo de ruta (ver mapeo
+    arriba). 'SIN_CLASIFICAR' si el estado no matchea ninguno de los 5
+    grupos (ej. Amazonas, Bolívar, Sucre... zonas que hoy no tienen chofer
+    asignado en la matriz que dio el usuario) o si ORS falla."""
+    try:
+        resp = requests.get(
+            "https://api.openrouteservice.org/geocode/reverse",
+            params={"api_key": ORS_API_KEY, "point.lat": lat, "point.lon": lon},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return "SIN_CLASIFICAR"
+        features = resp.json().get("features", [])
+        if not features:
+            return "SIN_CLASIFICAR"
+        region = _normalizar_acentos_ascii(str(features[0]["properties"].get("region", "")).lower())
+        return _GRUPO_POR_ESTADO.get(region, "SIN_CLASIFICAR")
+    except Exception as e:
+        print(f"[ORS Reverse] Error clasificando ({lat}, {lon}): {e}", flush=True)
+        return "SIN_CLASIFICAR"
+
+
+def _geocodificar_direccion_ors(direccion: str):
+    """Geocodifica texto de dirección -> (lat, lon) vía ORS Geocoding API
+    (mismo API key que Directions). Acotado a Venezuela. None si no hay match
+    o la API falla — nunca lanza.
+
+    Las direcciones de Profit (clientes.direc1/direc2) suelen ser texto
+    libre ruidoso (palabras duplicadas, sin puntuación, mezclando calle y
+    referencias) — un geocoder falla seguido con la cadena completa
+    (confirmado en vivo). Fallback: si la dirección completa no matchea, se
+    reintenta solo con las últimas palabras, pero SOLO si contienen el
+    nombre de un estado venezolano real (ver _ESTADOS_VENEZUELA) — si no,
+    mejor devolver "sin ubicar" que un match falso con confianza alta."""
+    direccion = direccion.strip()
+    if not direccion:
+        return None
+    coords = _geocodificar_texto_ors(direccion)
+    if coords:
+        return coords
+    palabras = direccion.split()
+    if len(palabras) > 4:
+        resumen = " ".join(palabras[-4:])
+        if not _contiene_estado_venezolano(resumen):
+            return None
+        coords = _geocodificar_texto_ors(resumen)
+        if coords:
+            return coords
+    return None
+
+
+def _obtener_coordenadas_cliente_cacheadas(co_cli: str, direccion_texto: str):
+    """Cache de geocodificación por cliente (SQLite): evita re-geocodificar
+    (llamada de red) la misma dirección en cada consulta de rutas. Si la
+    dirección de texto cambió respecto a lo cacheado, re-geocodifica.
+    Devuelve (lat, lon, grupo_ruta) o None."""
+    conn = get_db_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS geocodificacion_clientes (
+                co_cli TEXT PRIMARY KEY,
+                direccion_texto TEXT,
+                latitud REAL,
+                longitud REAL,
+                grupo_ruta TEXT,
+                geocodificado_en TEXT DEFAULT (datetime('now','localtime'))
+            )
+        """)
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(geocodificacion_clientes)").fetchall()]
+        if "grupo_ruta" not in cols:
+            conn.execute("ALTER TABLE geocodificacion_clientes ADD COLUMN grupo_ruta TEXT")
+
+        fila = conn.execute(
+            "SELECT direccion_texto, latitud, longitud, grupo_ruta FROM geocodificacion_clientes WHERE co_cli = ?",
+            (co_cli,),
+        ).fetchone()
+        if (fila and fila["direccion_texto"] == direccion_texto and fila["latitud"] is not None
+                and fila["grupo_ruta"] is not None
+                and _coords_dentro_venezuela(fila["latitud"], fila["longitud"])):
+            return (fila["latitud"], fila["longitud"], fila["grupo_ruta"])
+
+        coords = _geocodificar_direccion_ors(direccion_texto)
+        grupo = _grupo_ruta_desde_coords(coords[0], coords[1]) if coords else None
+        conn.execute(
+            "INSERT INTO geocodificacion_clientes (co_cli, direccion_texto, latitud, longitud, grupo_ruta, geocodificado_en) "
+            "VALUES (?, ?, ?, ?, ?, datetime('now','localtime')) "
+            "ON CONFLICT(co_cli) DO UPDATE SET direccion_texto=excluded.direccion_texto, "
+            "latitud=excluded.latitud, longitud=excluded.longitud, grupo_ruta=excluded.grupo_ruta, "
+            "geocodificado_en=excluded.geocodificado_en",
+            (co_cli, direccion_texto, coords[0] if coords else None, coords[1] if coords else None, grupo),
+        )
+        conn.commit()
+        return (coords[0], coords[1], grupo) if coords else None
+    finally:
+        conn.close()
+
+
+_cols_not_ent_cache = {}
+
+
+def _resolver_cols_not_ent(cur_profit) -> dict:
+    """Resuelve las columnas de not_ent UNA vez por proceso (cacheado en
+    memoria) — antes se resolvía por INFORMATION_SCHEMA en cada nota."""
+    if _cols_not_ent_cache:
+        return _cols_not_ent_cache
+    cols = [r[0] for r in cur_profit.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_NAME = 'not_ent' AND TABLE_SCHEMA = 'dbo'"
+    ).fetchall()]
+    lower = {c.lower(): c for c in cols}
+
+    def _resolver(candidatas):
+        for c in candidatas:
+            if c.lower() in lower:
+                return lower[c.lower()]
+        return None
+
+    cols_cli = [r[0] for r in cur_profit.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_NAME = 'clientes' AND TABLE_SCHEMA = 'dbo'"
+    ).fetchall()]
+    lower_cli = {c.lower(): c for c in cols_cli}
+    col_cli_des = None
+    for c in ["cli_des", "descrip", "nombre"]:
+        if c.lower() in lower_cli:
+            col_cli_des = lower_cli[c.lower()]
+            break
+
+    _cols_not_ent_cache.update({
+        "factura": _resolver(["fact_num", "num_doc", "nro_doc", "documento", "numero", "factura"]),
+        "cli_des": col_cli_des,
+        "tiene_co_cli": "co_cli" in lower,
+    })
+    return _cols_not_ent_cache
+
+
+def _resolver_cliente_de_nota_profit(cur_profit, cod_nota: str) -> dict:
+    """co_cli + nombre del cliente para una nota, vía Profit not_ent — usa el
+    cursor YA ABIERTO del lote (antes: una conexión pyodbc nueva POR NOTA,
+    causa real del HTTP 524 detectado en vivo — 50 notas x conexión nueva
+    fácilmente supera los ~100s del túnel Cloudflare)."""
+    cols = _resolver_cols_not_ent(cur_profit)
+    if not cols.get("factura"):
+        return {}
+    join_cliente = "LEFT JOIN clientes cl ON cl.co_cli = ne.co_cli" if cols["cli_des"] and cols["tiene_co_cli"] else ""
+    cli_expr = f"LTRIM(RTRIM(CAST(cl.{cols['cli_des']} AS NVARCHAR(200))))" if cols["cli_des"] else "'(sin nombre)'"
+    fila = cur_profit.execute(
+        f"SELECT LTRIM(RTRIM(CAST(ne.co_cli AS NVARCHAR(30)))) AS co_cli, {cli_expr} AS cliente "
+        f"FROM not_ent ne {join_cliente} "
+        f"WHERE LTRIM(RTRIM(CAST(ne.{cols['factura']} AS NVARCHAR(40)))) = ?",
+        cod_nota,
+    ).fetchone()
+    if not fila or not fila[0]:
+        return {}
+    return {"co_cli": fila[0], "cliente": fila[1] or ""}
+
+
+def _resolver_nota_embalada_completa(cod_nota: str, ruta_legacy: str, cur_profit) -> dict:
+    """Pipeline completo de una nota EMBALADA: cliente (Profit not_ent) ->
+    dirección (Profit clientes) -> coordenadas (ORS geocoding, cacheado).
+    Nunca lanza: si algún paso falla, devuelve lo que sí pudo resolver con
+    latitud/longitud=None (el llamador filtra las que no se pueden rutear).
+    Reutiliza SIEMPRE el mismo cursor Profit del lote (sin abrir conexión
+    nueva por nota — ver _resolver_cliente_de_nota_profit)."""
+    base = {
+        "numero_nota": cod_nota,
+        "ruta": ruta_legacy or "",
+        "cliente": "",
+        "co_cli": "",
+        "direccion": "",
+        "latitud": None,
+        "longitud": None,
+        "grupo_ruta": "SIN_CLASIFICAR",
+    }
+    try:
+        perfil = _resolver_cliente_de_nota_profit(cur_profit, cod_nota)
+    except Exception:
+        perfil = {}
+    if not perfil.get("co_cli"):
+        return base
+    base["cliente"] = perfil.get("cliente", "")
+    base["co_cli"] = perfil["co_cli"]
+    try:
+        direccion = _resolver_direccion_cliente_profit(cur_profit, perfil["co_cli"])
+    except Exception:
+        direccion = ""
+    base["direccion"] = direccion
+    if direccion:
+        resultado = _obtener_coordenadas_cliente_cacheadas(perfil["co_cli"], direccion)
+        if resultado:
+            base["latitud"], base["longitud"], base["grupo_ruta"] = resultado
+    return base
+
 
 class ORSAdapter:
     """Adaptador hexagonal para OpenRouteService."""
@@ -2434,9 +3444,29 @@ class ORSAdapter:
 
     def calcular_ruta_optimizada(self, origen, destinos):
         """
-        Reordena destinos por eficiencia y devuelve GeoJSON + orden óptimo.
+        Devuelve GeoJSON + paradas con su ETA REAL acumulada (duración real
+        de manejo por carretera, calculada por ORS con datos de vías reales
+        — no una línea recta con velocidad inventada).
         origen: [lng, lat]
         destinos: lista de [[lng, lat], ...]
+
+        BUG REAL corregido (v4.56, reportado en vivo — el sistema mostraba
+        22h18min para un tramo que Google Maps calcula en 17h41min): el ETA
+        se calculaba con distancia en línea recta (Haversine) dividida por
+        una velocidad FIJA de "30 km/h urbano" — absurdo para un viaje de
+        cientos de km por autopista/carretera nacional. Además la respuesta
+        de ORS trae UN segmento de ruta POR TRAMO (origen→parada1,
+        parada1→parada2, ...) con la duración real ya calculada, y el código
+        anterior solo miraba `segments[0]` (el primer tramo) y descartaba el
+        resto — nunca se usaba ese dato real. Ahora se usa la duración real
+        acumulada de cada tramo tal como la devuelve ORS (que ya respeta
+        velocidades reales de vía, no hace falta un tope manual de 110km/h).
+
+        NOTA (limitación conocida, no resuelta acá): el orden de las
+        paradas sigue siendo el orden en que se seleccionaron, NO un orden
+        optimizado por distancia/tiempo real — ORS Directions rutea en el
+        orden que se le da, no lo reordena. Optimizar el orden requeriría
+        la API de Optimización de ORS (VROOM), que es un cambio aparte.
         """
         if not destinos:
             return None, []
@@ -2468,24 +3498,34 @@ class ORSAdapter:
             route = data.get("features", [{}])[0]
             geometry = route.get("geometry", None)
             properties = route.get("properties", {})
-            segments = properties.get("segments", [{}])[0]
-            steps = segments.get("steps", [])
+            # Un segmento por tramo: segments[0] = origen->destinos[0],
+            # segments[1] = destinos[0]->destinos[1], etc.
+            segments = properties.get("segments", [])
 
             order = []
+            acumulado_min = 0.0
             for i, dest in enumerate(destinos):
-                order.append({"index": i, "coords": dest})
+                seg = segments[i] if i < len(segments) else {}
+                duracion_tramo_min = (seg.get("duration") or 0) / 60.0
+                acumulado_min += duracion_tramo_min
+                order.append({"index": i, "coords": dest, "eta_minutos": round(acumulado_min, 1)})
 
             return geometry, order
         except requests.exceptions.Timeout:
             print("[ORS] Timeout al consultar ORS API")
-            # fallback: secuencia sin optimizar
-            return None, [{"index": i, "coords": d} for i, d in enumerate(destinos)]
+            # fallback: secuencia sin optimizar, sin ETA real disponible
+            return None, [{"index": i, "coords": d, "eta_minutos": None} for i, d in enumerate(destinos)]
         except Exception as e:
             print(f"[ORS] Error en calcular_ruta_optimizada: {e}")
             return None, []
 
     def estimar_eta(self, posicion_actual, destino_coords):
-        """Devuelve minutos estimados de llegada."""
+        """ETA aproximado por línea recta — SOLO para telemetría en vivo
+        (distancia del chofer a su próxima parada mientras se mueve, no la
+        ruta completa; ver calcular_ruta_optimizada para el ETA real de
+        ruta). Velocidad de referencia subida de 30 a 70 km/h (promedio
+        realista de carretera venezolana, tope legal de camión 110 km/h) —
+        30 km/h era velocidad de ciudad, no de ruta abierta."""
         from math import radians, sin, cos, sqrt, atan2
         lat1, lon1 = radians(posicion_actual[1]), radians(posicion_actual[0])
         lat2, lon2 = radians(destino_coords[1]), radians(destino_coords[0])
@@ -2493,101 +3533,227 @@ class ORSAdapter:
         a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
         dist_km = 6371 * c
-        velocidad_kmh = 30  # velocidad urbana promedio
+        velocidad_kmh = 70  # promedio de carretera (antes 30, velocidad de ciudad)
         minutos = (dist_km / velocidad_kmh) * 60
         return round(minutos, 1)
 
 
+def _distancia_km(coords_a, coords_b) -> float:
+    """Haversine simple; coords en formato [lng, lat]."""
+    from math import radians, sin, cos, sqrt, atan2
+    lat1, lon1 = radians(coords_a[1]), radians(coords_a[0])
+    lat2, lon2 = radians(coords_b[1]), radians(coords_b[0])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    return 6371 * 2 * atan2(sqrt(a), sqrt(1 - a))
+
+
+# Radio máximo (km) desde el origen del chofer para incluir un destino en la
+# misma ruta. BUG REAL detectado en vivo: rep_not.ruta está SIEMPRE VACÍO en
+# las notas EMBALADA (se asigna después, en el despacho legacy) — no hay
+# ningún dato de zona/ruta real que filtrar en esa etapa. Sin este filtro,
+# el chofer podía seleccionar pedidos embalados de puntas opuestas del país
+# (Yaracuy + Falcón + Táchira + Zulia a la vez) y ORS rechazaba la ruta
+# completa por "distancia > 6000 km". Este radio usa la distancia REAL
+# geocodificada como proxy de "misma zona" ya que no hay campo de ruta
+# confiable en esta etapa del flujo.
+RADIO_MAX_RUTA_KM = float(os.environ.get("ARA_RUTA_RADIO_MAX_KM", "150"))
+
 _ors_adapter = ORSAdapter()
+
+
+def _conectar_profit_ro():
+    import pyodbc
+    driver = os.environ.get("PROFIT_DB_DRIVER", "SQL Server")
+    host = os.environ.get("PROFIT_DB_HOST", "192.168.4.20")
+    port = os.environ.get("PROFIT_DB_PORT", "1433")
+    db = os.environ.get("PROFIT_DB_NAME", "CRISTM25")
+    user = os.environ.get("PROFIT_DB_USER", "profit")
+    pwd = os.environ.get("PROFIT_DB_PASS", "profit")
+    return pyodbc.connect(
+        f"DRIVER={{{driver}}};SERVER={host},{port};DATABASE={db};UID={user};PWD={pwd}",
+        timeout=8,
+    )
+
+
+@app.route('/api/rutas/grupos', methods=['GET'])
+def rutas_grupos():
+    """Los 5 grupos fijos de ruta de chofer (definidos por el negocio a
+    partir del catálogo real de macro-rutas del visor legacy)."""
+    return jsonify([
+        {"id": gid, "nombre": nombre}
+        for gid, nombre in _GRUPOS_RUTA_NOMBRES.items()
+        if gid != "SIN_CLASIFICAR"
+    ])
 
 
 @app.route('/api/rutas/pedidos_embalados', methods=['GET'])
 def rutas_pedidos_embalados():
-    """Notas en estado 'embalado' listas para despacho."""
+    """Notas EMBALADAS listas para el chofer, con dirección geocodificada.
+
+    Fuente de 'EMBALADA': MySQL legacy rep_not.estatus (decisión v4.56 —
+    misma fuente que el resto de REALIZAR RUTA, no la SQLite local de ARA).
+    Pipeline por nota: rep_not -> Profit not_ent (co_cli) -> Profit clientes
+    (dirección de texto) -> ORS Geocoding (lat/lon, cacheado). Una nota sin
+    dirección resoluble o sin geocodificar se devuelve igual (con
+    latitud/longitud=null) para que el frontend la muestre como "sin
+    ubicar" en vez de desaparecer silenciosamente.
+    """
+    # Default bajado de 50 a 20 (v4.56): con conexión Profit reutilizada por
+    # lote esto ya no es el cuello de botella, pero la geocodificación de un
+    # cliente NUEVO (sin caché) sigue siendo una llamada de red a ORS — un
+    # lote grande de clientes nunca antes geocodificados podría acercarse
+    # igual al límite de ~100s del túnel Cloudflare. Tope de tiempo (60s)
+    # como segunda red de seguridad: si se acerca, corta y devuelve lo que
+    # ya resolvió en vez de arriesgar el 524.
+    limite = int(request.args.get('limite', 20))
+    limite = max(1, min(limite, 200))
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT ne.id, ne.numero_nota, ne.cliente, ne.direccion,
-                   ne.latitud, ne.longitud, ne.items_count, ne.fecha_creacion
-            FROM notas_entrega ne
-            WHERE ne.estado = 'embalado'
-            ORDER BY ne.fecha_creacion DESC
-        """)
-        filas = cursor.fetchall()
-        conn.close()
-        return jsonify([dict(f) for f in filas])
+        legacy = _listar_notas_embaladas_legacy(limite)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"No se pudo consultar rep_not (MySQL legacy): {e}"}), 500
+
+    if not legacy:
+        return jsonify([])
+
+    try:
+        conn_profit = _conectar_profit_ro()
+    except Exception as e:
+        return jsonify({"error": f"Profit no disponible para resolver clientes: {e}"}), 500
+
+    resultado = []
+    t_inicio = time.time()
+    try:
+        cur = conn_profit.cursor()
+        for fila in legacy:
+            if time.time() - t_inicio > 60:
+                break
+            info = _resolver_nota_embalada_completa(fila['cod_nota'], fila.get('ruta', ''), cur)
+            resultado.append(info)
+    finally:
+        conn_profit.close()
+
+    # División real por RUTA/ZONA de chofer (v4.56, a pedido explícito: "hay
+    # varios choferes, cada uno con su zona agrupada — un chofer no recorre
+    # media Venezuela, solo su ruta"). grupo_ruta viene de _resolver_nota_
+    # embalada_completa (reverse geocoding cacheado -> uno de los 5 grupos
+    # reales del negocio, ver _GRUPO_POR_ESTADO). Si el cliente pide un
+    # `grupo` explícito, "en_zona" = pertenece a ese grupo. Si no manda
+    # grupo (compatibilidad / primera carga sin selector aún), cae al
+    # criterio anterior por distancia al origen del chofer.
+    grupo_pedido = request.args.get('grupo', '').strip().upper() or None
+    origen_lat = request.args.get('origen_lat', type=float)
+    origen_lng = request.args.get('origen_lng', type=float)
+    origen = [origen_lng, origen_lat] if (origen_lat is not None and origen_lng is not None) else None
+
+    for info in resultado:
+        if info["latitud"] is not None and info["longitud"] is not None and origen is not None:
+            info["distancia_km"] = round(_distancia_km(origen, [info["longitud"], info["latitud"]]), 1)
+        else:
+            info["distancia_km"] = None
+        if grupo_pedido:
+            info["en_zona"] = info["grupo_ruta"] == grupo_pedido
+        elif info["distancia_km"] is not None:
+            info["en_zona"] = info["distancia_km"] <= RADIO_MAX_RUTA_KM
+        else:
+            info["en_zona"] = False
+
+    if grupo_pedido or origen is not None:
+        resultado.sort(key=lambda r: (not r["en_zona"], r["distancia_km"] is None, r["distancia_km"] or 0))
+
+    return jsonify(resultado)
 
 
 @app.route('/api/rutas/optimizar_ruta', methods=['POST'])
 def rutas_optimizar_ruta():
-    """Recibe origen + lista de nota_ids, retorna ruta optimizada con GeoJSON."""
+    """Recibe origen + lista de numero_nota (cod_nota de rep_not), retorna
+    ruta optimizada con GeoJSON. Resuelve cliente/dirección/coordenadas con
+    el mismo pipeline de /api/rutas/pedidos_embalados (cacheado por cliente,
+    así que si ya se listó antes no vuelve a golpear Profit/ORS)."""
     data = request.get_json()
     if not data:
         return jsonify({"error": "JSON requerido"}), 400
 
     origen = data.get("origen")  # [lng, lat]
-    nota_ids = data.get("nota_ids", [])
+    numeros_nota = data.get("numero_notas") or data.get("nota_ids", [])
 
-    if not origen or not nota_ids:
-        return jsonify({"error": "origen y nota_ids requeridos"}), 400
+    if not origen or not numeros_nota:
+        return jsonify({"error": "origen y numero_notas requeridos"}), 400
+    if len(origen) != 2 or not _coords_dentro_venezuela(float(origen[1]), float(origen[0])):
+        return jsonify({"error": f"Origen fuera de rango (GPS inválido): {origen}"}), 400
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        placeholders = ",".join("?" for _ in nota_ids)
-        cursor.execute(f"""
-            SELECT id, numero_nota, cliente, direccion, latitud, longitud
-            FROM notas_entrega
-            WHERE id IN ({placeholders}) AND estado = 'embalado'
-        """, nota_ids)
-        notas = [dict(r) for r in cursor.fetchall()]
-        conn.close()
-
-        destinos = []
-        for n in notas:
-            lat = n.get("latitud")
-            lng = n.get("longitud")
-            if lat and lng:
-                destinos.append({"nota": n, "coords": [float(lng), float(lat)]})
-
-        destinos_coords = [d["coords"] for d in destinos]
-
-        geometry, order = _ors_adapter.calcular_ruta_optimizada(origen, destinos_coords)
-
-        paradas = []
-        if order:
-            for paso in order:
-                idx = paso["index"]
-                dest = destinos[idx]
-                nota = dest["nota"]
-                d_coords = dest["coords"]
-                eta = _ors_adapter.estimar_eta(origen, d_coords)
-                paradas.append({
-                    "orden": len(paradas) + 1,
-                    "nota_id": nota["id"],
-                    "numero_nota": nota["numero_nota"],
-                    "cliente": nota["cliente"],
-                    "direccion": nota["direccion"],
-                    "latitud": nota["latitud"],
-                    "longitud": nota["longitud"],
-                    "eta_minutos": eta
-                })
-
-        _rutas_activas[data.get("ruta_id", "default")] = {
-            "paradas": paradas,
-            "origen": origen
-        }
-
-        return jsonify({
-            "status": "success",
-            "paradas": paradas,
-            "geojson": geometry
-        })
+        conn_profit = _conectar_profit_ro()
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": f"Profit no disponible: {e}"}), 500
+
+    notas = []
+    try:
+        cur = conn_profit.cursor()
+        for numero in numeros_nota:
+            notas.append(_resolver_nota_embalada_completa(str(numero), '', cur))
+    finally:
+        conn_profit.close()
+
+    # Sin tope de distancia al origen (v4.56, a pedido explícito): un chofer
+    # arranca desde donde esté (sede, casa, en ruta) y eso no tiene por qué
+    # estar cerca de su zona asignada — para eso son choferes, hacen viajes
+    # largos. La agrupación real ya la hace el grupo_ruta (Zulia/Trujillo,
+    # Llano/San Cristóbal, etc., ver _GRUPO_POR_ESTADO) que el chofer elige
+    # al listar pedidos_embalados; acá solo se filtra lo que no tiene
+    # coordenada resoluble. La protección contra el bug real (ORS rechazando
+    # la ruta por distancia absurda) ya quedó cubierta en la geocodificación
+    # misma (bounding box de Venezuela + filtro de estado real en el
+    # fallback), no hace falta un segundo tope aquí.
+    destinos = []
+    sin_ubicar = []
+    for n in notas:
+        if n["latitud"] is None or n["longitud"] is None:
+            sin_ubicar.append(n["numero_nota"])
+            continue
+        destinos.append({"nota": n, "coords": [float(n["longitud"]), float(n["latitud"])]})
+
+    if not destinos:
+        return jsonify({
+            "status": "error",
+            "mensaje": "Ninguna de las notas seleccionadas tiene dirección geocodificable.",
+            "sin_ubicar": sin_ubicar,
+        }), 200
+
+    destinos_coords = [d["coords"] for d in destinos]
+    geometry, order = _ors_adapter.calcular_ruta_optimizada(origen, destinos_coords)
+
+    paradas = []
+    if order:
+        for paso in order:
+            idx = paso["index"]
+            dest = destinos[idx]
+            nota = dest["nota"]
+            # ETA real (duración acumulada de ORS por carretera) — antes
+            # recalculaba con Haversine + velocidad fija, ignorando el dato
+            # real ya calculado (ver nota en calcular_ruta_optimizada).
+            eta = paso.get("eta_minutos")
+            paradas.append({
+                "orden": len(paradas) + 1,
+                "numero_nota": nota["numero_nota"],
+                "cliente": nota["cliente"],
+                "direccion": nota["direccion"],
+                "latitud": nota["latitud"],
+                "longitud": nota["longitud"],
+                "eta_minutos": eta
+            })
+
+    _rutas_activas[data.get("ruta_id", "default")] = {
+        "paradas": paradas,
+        "origen": origen
+    }
+
+    return jsonify({
+        "status": "success",
+        "paradas": paradas,
+        "geojson": geometry,
+        "sin_ubicar": sin_ubicar,
+    })
 
 
 @app.route('/api/rutas/telemetria_chofer', methods=['POST'])
@@ -2646,16 +3812,27 @@ def rutas_monitoreo_regente():
         """)
         total_entregas = cursor.fetchone()["total"]
 
-        cursor.execute("""
-            SELECT COUNT(*) as total FROM notas_entrega
-            WHERE estado = 'embalado'
-        """)
-        pendientes = cursor.fetchone()["total"]
-
         conn.close()
     except Exception:
         total_entregas = 0
+
+    # Pendientes = mismo conteo que /api/rutas/pedidos_embalados (MySQL
+    # legacy rep_not.estatus='EMBALADA', fuente de verdad elegida v4.56).
+    try:
+        pendientes = len(_listar_notas_embaladas_legacy(limite=500))
+    except Exception:
         pendientes = 0
+
+    # Rol (tipo de vehículo) por nombre de chofer — para el ícono en el mapa
+    # de Regente (🛻 chofer-camioneta, 🏍️ chofer-moto).
+    roles_choferes = {}
+    try:
+        conn_u = get_db_connection()
+        for row in conn_u.execute("SELECT nombre, rol FROM usuarios").fetchall():
+            roles_choferes[row["nombre"]] = row["rol"]
+        conn_u.close()
+    except Exception:
+        pass
 
     choferes = []
     for cid, pos in _posiciones_choferes.items():
@@ -2667,16 +3844,19 @@ def rutas_monitoreo_regente():
         else:
             clase_vel = "normal"
 
-        # Buscar nota actual
+        # Buscar nota actual (BUG corregido v4.56: comparaba contra 'nota_id',
+        # campo viejo — las paradas ahora usan 'numero_nota' desde que la
+        # fuente de EMBALADA pasó a MySQL legacy).
         nota_actual = None
         for rid, ruta in _rutas_activas.items():
             for p in ruta.get("paradas", []):
-                if str(p.get("nota_id")) == str(pos.get("nota_actual_id")):
+                if str(p.get("numero_nota")) == str(pos.get("nota_actual_id")):
                     nota_actual = p
                     break
 
         choferes.append({
             "chofer_id": cid,
+            "rol": roles_choferes.get(cid),
             "lat": pos.get("lat"),
             "lng": pos.get("lng"),
             "velocidad": vel,
@@ -2743,8 +3923,582 @@ def notas_actualizar_estado():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/notas/detalle_profit', methods=['GET'])
+def notas_detalle_profit():
+    """Detalle SOLO LECTURA de una nota en Profit (CRISTM25) para enriquecer
+    respuestas del agente IA (NVIDIA Brain / LLM) cuando la fila local de
+    notas_entrega no tiene cliente/co_cli/vendedor/fecha.
+
+    Es un enriquecimiento degradable: ante cualquier fallo de conexión o nota
+    ausente responde HTTP 200 con {"status": "error", ...} — nunca rompe el
+    flujo del cliente que la consume.
+    """
+    try:
+        from ara_brain import _consultar_nota_profit_readonly
+    except ImportError:
+        return jsonify({"status": "error", "mensaje": "ara_brain no disponible"}), 500
+    numero = request.args.get('numero', '').strip()
+    if not numero:
+        return jsonify({"status": "error", "mensaje": "Parámetro 'numero' obligatorio."}), 400
+    dato = _consultar_nota_profit_readonly(numero)
+    if 'error' in dato:
+        return jsonify({"status": "error", "mensaje": dato['error'], "origen": "CRISTM25"})
+    return jsonify({"status": "success", "nota": dato})
+
+
+# -----------------------------------------------------------------------------
+# PERFIL MAESTRO DE CLIENTE + ESTADO DE CUENTA (Profit CRISTM25, SOLO LECTURA)
+# Fuentes: dbo.clientes (maestro) + tablas de cuentas por cobrar (sfac/scxc/
+# not_ent) donde el saldo sea mayor a 0 o el estatus no esté totalmente
+# cancelado. Resolución dinámica de columnas vía INFORMATION_SCHEMA (patrón de
+# _consultar_nota_profit_readonly y ProfitFacturador): nunca se asumen nombres.
+# Degrada a {"error": ...} sin excepción ante fallo de conexión o esquema.
+# -----------------------------------------------------------------------------
+
+_CAND_CLIENTE_COD = ["co_cli", "co_cliente", "cod_cli"]
+_CAND_CLIENTE_DES = ["cli_des", "descrip", "nombre"]
+_CAND_CLIENTE_RIF = ["rif", "doc_rif"]
+_CAND_CLIENTE_NIT = ["nit", "doc_nit"]
+_CAND_CLIENTE_TEL = ["telefono", "telef", "telf", "telf1"]
+_CAND_CLIENTE_VEN = ["co_ven", "vendedor"]
+_CAND_CLIENTE_LIM = ["lim_cred", "limite_credito", "lim_cre"]
+
+# Tablas candidatas de cuentas por cobrar / documentos abiertos (Profit).
+# sfac = facturas, scxc = cuentas por cobrar, not_ent = notas de entrega,
+# factura = encabezado de facturas (todas con columna de cliente y saldo).
+_CAND_TABLAS_CXC = ["sfac", "scxc", "not_ent", "factura"]
+_CAND_DOC_NUM = ["fact_num", "num_doc", "nro_doc", "documento", "numero", "factura"]
+_CAND_DOC_FECHA = ["fec_emis", "fecha", "fec_ven"]
+_CAND_DOC_TOTAL = ["total_bruto", "total", "monto", "monto_total", "total_neto"]
+_CAND_DOC_SALDO = ["saldo", "saldo_pend", "saldo_restante", "saldo_actual"]
+_CAND_DOC_STATUS = ["status", "statu", "estatus", "estado"]
+_CAND_DOC_ANULADA = ["anulada", "anulado"]
+
+# Estatus de Profit que indican documento TOTALMENTE cancelado/anulado: se
+# excluyen de los pendientes. 'P' = presupuesto/pendiente (no es saldo abierto
+# a cobro); 'A'/'N' = anulada; 'D'/'C' = cancelada/descontada.
+_STATUS_CANCELADO = {"A", "N", "D", "C", "P"}
+
+
+def _consultar_cliente_estado_cuenta_profit(co_cli: str) -> dict:
+    """Consulta SOLO LECTURA del perfil del cliente y su estado de cuenta.
+    Retorna:
+        {"cliente": {...}, "documentos_pendientes": [...], "saldo_total": ...}
+    o {"error": "..."} degradado (nunca lanza)."""
+    try:
+        import pyodbc
+    except ImportError:
+        return {"error": "pyodbc no disponible"}
+
+    driver = os.environ.get("PROFIT_DB_DRIVER", "SQL Server")
+    host = os.environ.get("PROFIT_DB_HOST", "192.168.4.20")
+    port = os.environ.get("PROFIT_DB_PORT", "1433")
+    db = os.environ.get("PROFIT_DB_NAME", "CRISTM25")
+    user = os.environ.get("PROFIT_DB_USER", "profit")
+    pwd = os.environ.get("PROFIT_DB_PASS", "profit")
+    try:
+        conn = pyodbc.connect(
+            f"DRIVER={{{driver}}};SERVER={host},{port};DATABASE={db};UID={user};PWD={pwd}",
+            timeout=8,
+        )
+    except Exception as e:
+        return {"error": f"Profit no disponible: {e}"}
+    try:
+        cur = conn.cursor()
+
+        def _cols(tabla: str):
+            return [r[0] for r in cur.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'dbo'",
+                tabla,
+            ).fetchall()]
+
+        def _resolver(cols, candidatas):
+            lower = {c.lower(): c for c in cols}
+            for c in candidatas:
+                if c.lower() in lower:
+                    return lower[c.lower()]
+            return None
+
+        # ── 1) Maestro del cliente ────────────────────────────────────────────
+        cols_cli = _cols("clientes")
+        col_cod = _resolver(cols_cli, _CAND_CLIENTE_COD)
+        col_des = _resolver(cols_cli, _CAND_CLIENTE_DES)
+        col_rif = _resolver(cols_cli, _CAND_CLIENTE_RIF)
+        col_nit = _resolver(cols_cli, _CAND_CLIENTE_NIT)
+        col_tel = _resolver(cols_cli, _CAND_CLIENTE_TEL)
+        col_ven = _resolver(cols_cli, _CAND_CLIENTE_VEN)
+        col_lim = _resolver(cols_cli, _CAND_CLIENTE_LIM)
+        if not col_cod:
+            return {"error": "Esquema Profit sin co_cli en dbo.clientes"}
+
+        selecciones = [f"LTRIM(RTRIM(CAST([{col_cod}] AS NVARCHAR(30)))) AS co_cli"]
+        if col_des:
+            selecciones.append(f"LTRIM(RTRIM(CAST([{col_des}] AS NVARCHAR(250)))) AS razon_social")
+        if col_rif:
+            selecciones.append(f"LTRIM(RTRIM(CAST([{col_rif}] AS NVARCHAR(30)))) AS rif")
+        if col_nit:
+            selecciones.append(f"LTRIM(RTRIM(CAST([{col_nit}] AS NVARCHAR(30)))) AS nit")
+        if col_tel:
+            selecciones.append(f"LTRIM(RTRIM(CAST([{col_tel}] AS NVARCHAR(30)))) AS telefono")
+        if col_ven:
+            selecciones.append(f"LTRIM(RTRIM(CAST([{col_ven}] AS NVARCHAR(30)))) AS co_ven")
+        if col_lim:
+            selecciones.append(f"CAST([{col_lim}] AS FLOAT) AS limite_credito")
+
+        fila = cur.execute(
+            f"SELECT {', '.join(selecciones)} FROM dbo.clientes "
+            f"WHERE LTRIM(RTRIM(CAST([{col_cod}] AS NVARCHAR(30)))) = ?",
+            co_cli,
+        ).fetchone()
+        if not fila:
+            return {"error": f"Cliente {co_cli} no encontrado en Profit (CRISTM25)"}
+        cols_fila = [d[0] for d in cur.description]
+        cliente = dict(zip(cols_fila, fila))
+
+        # ── 2) Documentos pendientes (cuentas por cobrar) ─────────────────────
+        documentos = []
+        for tabla in _CAND_TABLAS_CXC:
+            cols_doc = _cols(tabla)
+            if not cols_doc:
+                continue
+            col_cli_doc = _resolver(cols_doc, _CAND_CLIENTE_COD)
+            if not col_cli_doc:
+                continue
+            col_num = _resolver(cols_doc, _CAND_DOC_NUM)
+            col_fecha = _resolver(cols_doc, _CAND_DOC_FECHA)
+            col_total = _resolver(cols_doc, _CAND_DOC_TOTAL)
+            col_saldo = _resolver(cols_doc, _CAND_DOC_SALDO)
+            col_status = _resolver(cols_doc, _CAND_DOC_STATUS)
+            col_anulada = _resolver(cols_doc, _CAND_DOC_ANULADA)
+            if not col_num and not col_saldo and not col_status:
+                continue
+
+            exprs = [f"LTRIM(RTRIM(CAST([{col_cli_doc}] AS NVARCHAR(30)))) AS co_cli"]
+            if col_num:
+                exprs.append(f"LTRIM(RTRIM(CAST([{col_num}] AS NVARCHAR(40)))) AS numero")
+            else:
+                exprs.append("NULL AS numero")
+            if col_fecha:
+                exprs.append(f"CAST([{col_fecha}] AS NVARCHAR(40)) AS fecha")
+            else:
+                exprs.append("NULL AS fecha")
+            if col_total:
+                exprs.append(f"CAST([{col_total}] AS FLOAT) AS total")
+            else:
+                exprs.append("0 AS total")
+            if col_saldo:
+                exprs.append(f"CAST([{col_saldo}] AS FLOAT) AS saldo")
+            else:
+                exprs.append("0 AS saldo")
+            if col_status:
+                exprs.append(f"UPPER(CAST([{col_status}] AS NVARCHAR(10))) AS status")
+            else:
+                exprs.append("NULL AS status")
+            if col_anulada:
+                exprs.append(f"CAST([{col_anulada}] AS INT) AS anulada")
+            else:
+                exprs.append("0 AS anulada")
+            tipo = "FACT" if "sfac" in tabla.lower() else ("CXC" if "scxc" in tabla.lower() else ("NOTA" if tabla.lower() == "not_ent" else "FAC"))
+
+            # Filtro: solo documentos abiertos (saldo > 0) o que no estén
+            # totalmente cancelados; se aplica también en Python por robustez.
+            cond = f"WHERE LTRIM(RTRIM(CAST([{col_cli_doc}] AS NVARCHAR(30)))) = ?"
+            filas = cur.execute(
+                f"SELECT {', '.join(exprs)} FROM dbo.[{tabla}] {cond}",
+                co_cli,
+            ).fetchall()
+            for f in filas:
+                r = dict(zip([d[0] for d in cur.description], f))
+                anulada = r.get("anulada") in (True, 1)
+                status = str(r.get("status") or "").upper()
+                saldo = float(r.get("saldo") or 0)
+                if anulada or status in _STATUS_CANCELADO:
+                    continue
+                if saldo <= 0 and status not in ("T", "0", "2", ""):
+                    continue
+                documentos.append({
+                    "tipo": tipo,
+                    "numero": str(r.get("numero") or ""),
+                    "fecha": str(r.get("fecha") or ""),
+                    "total": float(r.get("total") or 0),
+                    "saldo": saldo,
+                })
+            if documentos:
+                break  # primera tabla con datos pendientes (evita duplicados)
+
+        return {
+            "cliente": {
+                "co_cli": str(cliente.get("co_cli") or co_cli),
+                "razon_social": str(cliente.get("razon_social") or ""),
+                "rif": str(cliente.get("rif") or ""),
+                "nit": str(cliente.get("nit") or ""),
+                "telefono": str(cliente.get("telefono") or ""),
+                "limite_credito": float(cliente.get("limite_credito") or 0),
+                "vendedor": str(cliente.get("co_ven") or ""),
+            },
+            "documentos_pendientes": documentos,
+            "saldo_total_pendiente": round(sum(d["saldo"] for d in documentos), 2),
+        }
+    except Exception as e:
+        return {"error": f"Consulta de estado de cuenta falló: {e}"}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _buscar_clientes_profit(busqueda: str, limite: int = 10) -> dict:
+    """Búsqueda SOLO LECTURA de clientes por coincidencia parcial en razón
+    social (LIKE %...%) en dbo.clientes de CRISTM25.
+
+    Retorna {"clientes": [{co_cli, razon_social, rif, co_ven}]} o
+    {"error": ...} degradado. El LLM la usa para resolver un código antes de
+    consultar el estado de cuenta completo.
+    """
+    try:
+        import pyodbc
+    except ImportError:
+        return {"error": "pyodbc no disponible"}
+
+    driver = os.environ.get("PROFIT_DB_DRIVER", "SQL Server")
+    host = os.environ.get("PROFIT_DB_HOST", "192.168.4.20")
+    port = os.environ.get("PROFIT_DB_PORT", "1433")
+    db = os.environ.get("PROFIT_DB_NAME", "CRISTM25")
+    user = os.environ.get("PROFIT_DB_USER", "profit")
+    pwd = os.environ.get("PROFIT_DB_PASS", "profit")
+    try:
+        conn = pyodbc.connect(
+            f"DRIVER={{{driver}}};SERVER={host},{port};DATABASE={db};UID={user};PWD={pwd}",
+            timeout=8,
+        )
+    except Exception as e:
+        return {"error": f"Profit no disponible: {e}"}
+    try:
+        cur = conn.cursor()
+        cols_cli = [r[0] for r in cur.execute(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+            "WHERE TABLE_NAME = 'clientes' AND TABLE_SCHEMA = 'dbo'",
+        ).fetchall()]
+        lower = {c.lower(): c for c in cols_cli}
+
+        def _res(cands):
+            for c in cands:
+                if c.lower() in lower:
+                    return lower[c.lower()]
+            return None
+
+        col_cod = _res(_CAND_CLIENTE_COD)
+        col_des = _res(_CAND_CLIENTE_DES)
+        col_rif = _res(_CAND_CLIENTE_RIF)
+        col_ven = _res(_CAND_CLIENTE_VEN)
+        if not col_cod or not col_des:
+            return {"error": "Esquema Profit sin co_cli/cli_des en dbo.clientes"}
+
+        exprs = [f"LTRIM(RTRIM(CAST([{col_cod}] AS NVARCHAR(30)))) AS co_cli",
+                 f"LTRIM(RTRIM(CAST([{col_des}] AS NVARCHAR(250)))) AS razon_social"]
+        if col_rif:
+            exprs.append(f"LTRIM(RTRIM(CAST([{col_rif}] AS NVARCHAR(30)))) AS rif")
+        if col_ven:
+            exprs.append(f"LTRIM(RTRIM(CAST([{col_ven}] AS NVARCHAR(30)))) AS co_ven")
+
+        filas = cur.execute(
+            f"SELECT TOP (?) {', '.join(exprs)} FROM dbo.clientes "
+            f"WHERE LTRIM(RTRIM(CAST([{col_des}] AS NVARCHAR(250)))) LIKE ? "
+            f"ORDER BY LTRIM(RTRIM(CAST([{col_des}] AS NVARCHAR(250))))",
+            limite, f"%{busqueda}%",
+        ).fetchall()
+        cols_f = [d[0] for d in cur.description]
+        clientes = [dict(zip(cols_f, f)) for f in filas]
+        if not clientes:
+            return {"error": f"No hay clientes que coincidan con \"{busqueda}\""}
+        return {"clientes": clientes}
+    except Exception as e:
+        return {"error": f"Búsqueda de clientes falló: {e}"}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@app.route('/api/cliente/estado_cuenta', methods=['GET'])
+def cliente_estado_cuenta():
+    """Perfil maestro + estado de cuenta de un cliente en Profit (CRISTM25).
+
+    GET /api/cliente/estado_cuenta?co_cli=...        → estado de cuenta completo
+    GET /api/cliente/estado_cuenta?busqueda=...      → candidatos por razón social
+    Retorna JSON consolidado: {cliente, documentos_pendientes, saldo_total}.
+    Degrada a HTTP 200 {"status":"error"} ante cliente ausente o fallo de
+    conexión (el agente NvidiaBrain lo traduce sin romper su bucle).
+    """
+    co_cli = request.args.get('co_cli', '').strip()
+    busqueda = request.args.get('busqueda', '').strip()
+    if not co_cli and not busqueda:
+        return jsonify({"status": "error",
+                        "mensaje": "Parámetro 'co_cli' u 'busqueda' obligatorio."}), 400
+    if busqueda and not co_cli:
+        dato = _buscar_clientes_profit(busqueda)
+        if 'error' in dato:
+            return jsonify({"status": "error", "mensaje": dato['error'], "origen": "CRISTM25"})
+        return jsonify({"status": "success", **dato})
+    dato = _consultar_cliente_estado_cuenta_profit(co_cli)
+    if 'error' in dato:
+        return jsonify({"status": "error", "mensaje": dato['error'], "origen": "CRISTM25"})
+    return jsonify({"status": "success", **dato})
+
+
+# =============================================================================
+# 6. PUENTE CLI DE TOOLS NVIDIA BRAIN (directiva v4.4: menú de comandos '/')
+# =============================================================================
+# El menú flotante del chat (templates/index.html) consulta el catálogo y
+# ejecuta las 25 tools departamentales por nombre a través del runner PHP
+# bin/ejecutar_tool_cli.php. El runner es la única fuente de verdad del
+# ToolRegistry; este adaptador solo orquesta el subproceso (subprocess con
+# lista de argumentos, sin shell, para no manglear las comillas del JSON).
+import subprocess
+
+_RUNNER_TOOLS = str(_PROJECT_ROOT / 'bin' / 'ejecutar_tool_cli.php')
+_PHP_EXE = os.environ.get('ARA_PHP_EXE', r'C:\tools\php\php.exe')
+if not os.path.exists(_PHP_EXE):
+    _PHP_EXE = 'php'
+
+
+def _ip_real() -> str | None:
+    """Devuelve la IP real de red (no loopback) de la máquina, o None."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+        finally:
+            s.close()
+        return ip
+    except Exception:
+        return None
+
+
+def _ejecutar_runner_tools(args: list, timeout_s: int) -> dict:
+    """Ejecuta el runner PHP con FUSIBLE anti-zombi (Orden v4.14) y devuelve
+    el JSON de su primera línea de stdout.
+
+    - Propaga ARA_CLI_MAX_S al subproceso: el propio runner PHP se suicida a
+      ese límite (set_time_limit + vigilante por ticks) si la skill se cuelga.
+    - AQUÍ se aplica además el fusible de respaldo: communicate(timeout) y
+      process.kill() si el PHP no termina a tiempo. NUNCA queda php.exe vivo
+      en background (zombi).
+    - Sin shell (lista de argumentos) para no manglear las comillas del JSON.
+    """
+    comando = [_PHP_EXE, _RUNNER_TOOLS] + args
+    env = dict(os.environ)
+    # URL base del ERP para los tools PHP que la necesiten (ej. consultar_nota):
+    # el loopback 127.0.0.1 puede estar ocupado por otro proceso, así que se
+    # apunta a la IP real del servidor ARA (v4.9).
+    #
+    # BUG real detectado en vivo (24/08): este puerto quedó hardcodeado en
+    # 5000 — cuando ara_server.py se movió a 4050 (PC-NVR.exe tomaba el
+    # 5000 en esta máquina), CUALQUIER invocación de una tool PHP en la que
+    # el proceso de ara_server.py no tuviera ya ARA_ERP_URL en su propio
+    # entorno (ej. si se arrancó sin pasar por el lanzador) seguía armando
+    # la URL vieja acá mismo, pisando en silencio el fallback ya corregido
+    # del lado de FlaskApiTrait.php/ConsultarNotaTool.php — la nota SÍ
+    # existía, pero el subproceso PHP nunca podía alcanzar el API real.
+    if not env.get("ARA_ERP_URL"):
+        ip = _ip_real()
+        if ip:
+            env["ARA_ERP_URL"] = "http://%s:%s" % (ip, os.environ.get("ARA_SERVER_PORT", "4050"))
+    env["ARA_CLI_MAX_S"] = str(timeout_s)  # el runner se suicida a este tope
+    proc = subprocess.Popen(
+        comando,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
+    )
+    try:
+        stdout_b, stderr_b = proc.communicate(timeout=timeout_s)
+    except subprocess.TimeoutExpired:
+        proc.kill()   # fusible: mata el PHP si se cuelga
+        proc.wait()   # espera a que muera del todo (no queda zombi)
+        return {"status": "error",
+                "mensaje": "La skill PHP agotó %ds: proceso eliminado (anti-zombi)."
+                           % timeout_s,
+                "zombi_eliminado": True}
+    stdout = (stdout_b or b"").decode("utf-8", errors="replace").strip()
+    stderr = (stderr_b or b"").decode("utf-8", errors="replace").strip()
+    if proc.returncode != 0 and not stdout:
+        stderr_trozos = stderr.splitlines()
+        return {"status": "error",
+                "mensaje": "El runner PHP falló (exit %d): %s"
+                           % (proc.returncode, stderr_trozos[-1] if stderr_trozos else 'sin detalle')}
+    try:
+        return json.loads(stdout.splitlines()[0])
+    except (ValueError, IndexError) as e:
+        return {"status": "error", "mensaje": "Salida no JSON del runner: %s" % e}
+
+
+def _timeout_runner_tool(tool: str) -> int:
+    """Fusible anti-zombi por tool (Orden v4.14): 35s para skills directas de
+    datos (consultas Profit/MySQL ≤5s); 600s SOLO para las tools que delegan
+    a un subproceso largo con timeout interno propio (skills Python de
+    visión/OCR vía PythonSkillExecutor y el orquestador Hermes).
+
+    v4.55: hermes_chat con tool-calling real (varias vueltas contra NIM,
+    terminal/read_file/search_files) puede tardar 5-6 min de forma legítima
+    (medido en vivo: 336s con 8 llamadas a NIM y un reintento por HTTP 529
+    "Service temporarily overloaded"). El tope anterior (300s) mataba el
+    proceso justo antes de que terminara solo — el fusible debe dar margen
+    real, no ajustarse al caso más simple.
+    """
+    if tool == "hermes_chat" or tool.startswith("python_"):
+        return 600
+    return 35
+
+
+@app.route('/api/tools/catalogo', methods=['GET'])
+def tools_catalogo():
+    """GET /api/tools/catalogo → {success, total, catalogo:[{departamento,
+    nombre, descripcion, parametros}]} con las 25 tools departamentales.
+
+    Alimenta el menú de comandos '/' del chat; el frontend lo cachea.
+    """
+    try:
+        resultado = _ejecutar_runner_tools(['__catalogo__'], timeout_s=30)
+    except subprocess.TimeoutExpired:
+        return jsonify({"status": "error", "mensaje": "Runner PHP agotó 30s (catálogo)."}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": "No se pudo invocar el runner: %s" % e}), 500
+    if not resultado.get('success'):
+        return jsonify({"status": "error",
+                        "mensaje": resultado.get('error', 'Fallo del runner'),
+                        "tipo": resultado.get('tipo')}), 500
+    return jsonify(resultado)
+
+
+@app.route('/api/tools/ejecutar', methods=['POST'])
+def tools_ejecutar():
+    """POST /api/tools/ejecutar {tool, arguments?, contexto?} → ejecuta la
+    tool por nombre vía ToolRegistry (runner PHP) y devuelve su respuesta.
+
+    Fusible anti-zombi (Orden v4.14): 35s para skills directas de datos;
+    300s solo para delegadas (python_* / hermes_chat, timeout interno propio).
+    """
+    data = request.get_json(silent=True) or {}
+    tool = str(data.get('tool', '')).strip()
+    if not tool:
+        return jsonify({"status": "error", "mensaje": "Parámetro 'tool' obligatorio."}), 400
+    arguments = data.get('arguments') or {}
+    contexto = data.get('contexto') or {}
+    timeout_s = _timeout_runner_tool(tool)
+    try:
+        resultado = _ejecutar_runner_tools(
+            [tool, json.dumps(arguments, ensure_ascii=False), json.dumps(contexto, ensure_ascii=False)],
+            timeout_s=timeout_s,
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify({"status": "error",
+                        "mensaje": "La tool '%s' agotó el fusible (%ds): proceso eliminado." % (tool, timeout_s)}), 504
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": "No se pudo invocar el runner: %s" % e}), 500
+    if not resultado.get('success'):
+        return jsonify({"status": "error",
+                        "mensaje": resultado.get('error', 'Fallo del runner'),
+                        "tipo": resultado.get('tipo')}), 200
+    return jsonify(resultado)
+
+
+# -----------------------------------------------------------------------------
+# 6b. EJECUCIÓN ASÍNCRONA DE TOOLS LARGAS (hermes_chat / python_*)
+# -----------------------------------------------------------------------------
+# El túnel Cloudflare (trycloudflare.com, túnel rápido) corta cualquier
+# petición a los ~100s con HTTP 524, SIN posibilidad de configurar ese
+# límite (es fijo en túneles rápidos gratuitos). hermes_chat con tool-calling
+# real (varias vueltas contra NIM) supera eso fácilmente aunque el fusible
+# anti-zombi interno aguante hasta 300s. Solución: la petición HTTP inicial
+# responde de inmediato con un job_id (el trabajo corre en un hilo aparte);
+# el frontend pregunta el resultado con GET cada pocos segundos — cada
+# consulta de esas dura milisegundos, así que nunca choca con el límite del
+# túnel, sin importar cuánto tarde Hermes por dentro.
+_JOBS_TOOLS_LOCK = threading.Lock()
+_JOBS_TOOLS = {}  # job_id -> {"status": "pendiente"|"listo", "resultado": dict|None, "creado": float}
+_JOBS_TOOLS_TTL_S = 600  # limpieza de trabajos viejos por si el cliente nunca los consulta
+
+
+def _limpiar_jobs_tools_viejos():
+    tope = time.time() - _JOBS_TOOLS_TTL_S
+    for jid in [j for j, v in _JOBS_TOOLS.items() if v["creado"] < tope]:
+        del _JOBS_TOOLS[jid]
+
+
+def _correr_job_tool(job_id: str, tool: str, arguments: dict, contexto: dict, timeout_s: int):
+    try:
+        resultado = _ejecutar_runner_tools(
+            [tool, json.dumps(arguments, ensure_ascii=False), json.dumps(contexto, ensure_ascii=False)],
+            timeout_s=timeout_s,
+        )
+    except Exception as e:
+        resultado = {"status": "error", "mensaje": "No se pudo invocar el runner: %s" % e}
+    with _JOBS_TOOLS_LOCK:
+        if job_id in _JOBS_TOOLS:
+            _JOBS_TOOLS[job_id]["status"] = "listo"
+            _JOBS_TOOLS[job_id]["resultado"] = resultado
+
+
+@app.route('/api/tools/ejecutar_async', methods=['POST'])
+def tools_ejecutar_async():
+    """POST /api/tools/ejecutar_async {tool, arguments?, contexto?} →
+    {status, job_id}. Lanza la tool en un hilo aparte y devuelve al toque;
+    el resultado se consulta con GET /api/tools/resultado/<job_id>.
+    """
+    data = request.get_json(silent=True) or {}
+    tool = str(data.get('tool', '')).strip()
+    if not tool:
+        return jsonify({"status": "error", "mensaje": "Parámetro 'tool' obligatorio."}), 400
+    arguments = data.get('arguments') or {}
+    contexto = data.get('contexto') or {}
+    timeout_s = _timeout_runner_tool(tool)
+
+    with _JOBS_TOOLS_LOCK:
+        _limpiar_jobs_tools_viejos()
+        job_id = uuid.uuid4().hex
+        _JOBS_TOOLS[job_id] = {"status": "pendiente", "resultado": None, "creado": time.time()}
+
+    hilo = threading.Thread(
+        target=_correr_job_tool,
+        args=(job_id, tool, arguments, contexto, timeout_s),
+        daemon=True,
+    )
+    hilo.start()
+    return jsonify({"status": "ok", "job_id": job_id})
+
+
+@app.route('/api/tools/resultado/<job_id>', methods=['GET'])
+def tools_resultado_job(job_id):
+    """GET /api/tools/resultado/<job_id> → {status:'pendiente'} mientras
+    corre, o {status:'listo', resultado:{...}} cuando termina (se borra el
+    job al ser consumido)."""
+    with _JOBS_TOOLS_LOCK:
+        job = _JOBS_TOOLS.get(job_id)
+        if not job:
+            return jsonify({"status": "error", "mensaje": "job_id desconocido o ya consumido."}), 404
+        if job["status"] != "listo":
+            return jsonify({"status": "pendiente"})
+        resultado = job["resultado"]
+        del _JOBS_TOOLS[job_id]
+    return jsonify({"status": "listo", "resultado": resultado})
+
+
 if __name__ == '__main__':
-    PUERTO = 5000
+    # BUG real detectado en vivo (24/08): PC-NVR.exe (cliente de cámaras/DVR
+    # de esta máquina) también toma el puerto 5000 para su propia interfaz,
+    # y a veces gana la carrera de binding — las peticiones a ara_server.py
+    # podían terminar en el proceso equivocado (que no entiende HTTP y nunca
+    # responde). Puerto configurable vía env, default movido a 5050 para no
+    # competir más con eso. Los Tools PHP (FlaskApiTrait/ConsultarNotaTool)
+    # ya leen ARA_ERP_URL en vez de tener el puerto hardcodeado — solo hace
+    # falta setear esa env var, no tocar su código.
+    PUERTO = int(os.environ.get('ARA_SERVER_PORT', '4050'))
     HOST_BIND = '0.0.0.0'
     print(f"🚀 Iniciando ARA Brain Middleware en http://{HOST_BIND}:{PUERTO}...")
 
@@ -2785,8 +4539,13 @@ if __name__ == '__main__':
     # =========================================================================
     
     # Opción A: Si usas Waitress (Producción limpia)
+    # threads=32 (default de Waitress es 4): con solo 4, una sola consulta
+    # /hermes_chat (20-40s bloqueando su hilo dentro de proc.communicate)
+    # satura el pool y el resto de peticiones (polling de la bandeja de
+    # mensajes de otros operadores) se quedan en cola hasta que el túnel/
+    # navegador se rinde y devuelve HTML de error en vez de JSON.
     from waitress import serve
-    serve(app, host=HOST_BIND, port=PUERTO)
+    serve(app, host=HOST_BIND, port=PUERTO, threads=32)
 
     # Opción B: Si usas el server nativo de Flask (Modo Desarrollo)
     # app.run(host=HOST_BIND, port=PUERTO, debug=False)

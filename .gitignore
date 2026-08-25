@@ -35,3 +35,36 @@ Thumbs.db
 # Node modules (WhatsApp bot)
 node_modules/
 ara/ARA_Brain/whatsapp/node_modules/
+
+# Logs y candados de runtime (se regeneran solos, no son código fuente)
+logs/
+*.log
+*.lock
+ara/ARA_Brain/data/*.log
+ara/ARA_Brain/data/*.lock
+
+# Config local de Claude Code (personal de cada máquina, no del proyecto)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Datos generados/cache/uploads (no son código fuente, pueden traer datos
+# reales de clientes/facturas — nunca a git)
+ara/ARA_Brain/reportes/
+ara/ARA_Brain/data/adjuntos_ocr/
+visor_articulos/data/cache_vectorial*/
+
+# Sesión de WhatsApp Web (whatsapp-web.js) — perfil de navegador con datos
+# de autenticación reales, nunca debe ir a git (se regenera solo al
+# escanear el QR de nuevo).
+ara/ARA_Brain/whatsapp/.wwebjs_auth/
+ara/ARA_Brain/whatsapp/.wwebjs_cache/
+
+# Modelos binarios de IA (TTS Kokoro) — superan el límite de tamaño de
+# GitHub (100MB) y no son código fuente; se descargan aparte.
+ara/ARA_Brain/services/models/
+
+# Snapshots de datos de negocio en Excel — no son código fuente, mismo
+# criterio que *.db (arriba).
+ARA_Brain/datos_rutas.xlsx
+ara/ARA_Brain/data/*.xlsx
+ara/ARA_Brain/datos_rutas.xlsx

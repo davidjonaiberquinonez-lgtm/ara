@@ -353,6 +353,347 @@ def obtener_trazabilidad_hexagonal(entidad_id: str) -> dict:
 
 
 # =============================================================================
+# HERRAMIENTAS DE AUDITORÍA EN TIEMPO REAL (SOLO LECTURA) PARA ARA INTELLIGENT
+# =============================================================================
+# Fuentes: SQLite proyecto_ara.db (notas_entrega, movimientos_preparador,
+# log_puntos, reportes_ubicacion) + SQL Server CRISTM25 SOLO LECTURA (not_ent).
+
+_PALABRAS_NOTA = [
+    'nota', 'chequeo', 'chequeada', 'chequeado', 'embal', 'picking',
+    'preparad', 'despach', 'factura', 'fue preparada', 'fue embalada',
+]
+_PALABRAS_MOVIMIENTO = [
+    'movió', 'movio', 'movimiento', 'reubicación', 'reubicacion',
+    'llevó', 'llevo', 'mover', 'cambió', 'cambio de ubicación', 'trasladó', 'traslado',
+]
+_CAND_NOT_ENT_FACTURA = ["fact_num", "num_fac", "num_fact", "numero_nota"]
+_CAND_NOT_ENT_STATUS = ["status", "statu", "estatus", "estado"]
+_CAND_NOT_ENT_FECHA = ["fec_emis", "fe_emis", "fecha"]
+_CAND_CLIENTE_DES = ["cli_des", "descrip", "nombre"]
+
+
+def es_consulta_nota(mensaje: str) -> bool:
+    """True si el mensaje pide auditoría de una NOTA (número de 6+ dígitos)."""
+    if not mensaje:
+        return False
+    m = str(mensaje).lower()
+    return bool(re.search(r'\b\d{6,}\b', mensaje)) and any(p in m for p in _PALABRAS_NOTA)
+
+
+def es_consulta_historial_ubicacion(mensaje: str) -> bool:
+    """True si el mensaje pide el historial de movimiento/ubicación de un artículo."""
+    if not mensaje:
+        return False
+    m = str(mensaje).lower()
+    return any(p in m for p in _PALABRAS_MOVIMIENTO)
+
+
+def _etapa_desde_accion(accion: str) -> str | None:
+    """Mapea la acción de movimientos_preparador a la etapa del flujo."""
+    a = (accion or "").strip().lower()
+    if a in ("tomar", "preparar", "completar", "escaneo", "ocr_import"):
+        return "picking"
+    if "chequeada" in a:
+        return "chequeo"
+    if "embalada" in a or a == "embalaje":
+        return "embalaje"
+    return None
+
+
+def _consultar_nota_profit_readonly(num_nota: str) -> dict:
+    """Consulta SOLO LECTURA de la nota en SQL Server CRISTM25 (not_ent).
+
+    Resolución dinámica de columnas vía INFORMATION_SCHEMA; ante cualquier
+    fallo degrada a {'error': ...} sin lanzar excepción (el bot responde con
+    los datos locales).
+    """
+    import os
+    try:
+        import pyodbc
+    except ImportError:
+        return {"error": "pyodbc no disponible"}
+
+    driver = os.environ.get("PROFIT_DB_DRIVER", "SQL Server")
+    host = os.environ.get("PROFIT_DB_HOST", "192.168.4.20")
+    port = os.environ.get("PROFIT_DB_PORT", "1433")
+    db = os.environ.get("PROFIT_DB_NAME", "CRISTM25")
+    user = os.environ.get("PROFIT_DB_USER", "profit")
+    pwd = os.environ.get("PROFIT_DB_PASS", "profit")
+    try:
+        conn = pyodbc.connect(
+            f"DRIVER={{{driver}}};SERVER={host},{port};DATABASE={db};UID={user};PWD={pwd}",
+            timeout=8,
+        )
+    except Exception as e:
+        return {"error": f"Profit no disponible: {e}"}
+    try:
+        cur = conn.cursor()
+
+        def _cols(tabla: str):
+            return [r[0] for r in cur.execute(
+                "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+                "WHERE TABLE_NAME = ? AND TABLE_SCHEMA = 'dbo'",
+                tabla,
+            ).fetchall()]
+
+        def _resolver(cols, candidatas):
+            lower = {c.lower(): c for c in cols}
+            for c in candidatas:
+                if c.lower() in lower:
+                    return lower[c.lower()]
+            return None
+
+        cols_ne = _cols("not_ent")
+        col_factura = _resolver(cols_ne, _CAND_NOT_ENT_FACTURA)
+        col_status = _resolver(cols_ne, _CAND_NOT_ENT_STATUS)
+        col_fecha = _resolver(cols_ne, _CAND_NOT_ENT_FECHA)
+        col_ven = _resolver(cols_ne, ["co_ven", "vendedor"])
+        col_alma = _resolver(cols_ne, ["co_alma", "almacen"])
+        if not col_factura:
+            return {"error": "Esquema Profit sin columna de nota en not_ent"}
+
+        cols_cli = _cols("clientes")
+        col_cli_des = _resolver(cols_cli, _CAND_CLIENTE_DES)
+        join_cliente = (
+            f"LEFT JOIN clientes cl ON cl.co_cli = ne.co_cli"
+            if col_cli_des and "co_cli" in cols_ne
+            else ""
+        )
+        cli_expr = (
+            f"LTRIM(RTRIM(CAST(cl.{col_cli_des} AS NVARCHAR(200))))" if col_cli_des else "'(sin nombre)'"
+        )
+        fec_expr = f"CAST(ne.{col_fecha} AS NVARCHAR(40))" if col_fecha else "NULL"
+        sta_expr = f"UPPER(CAST(ne.{col_status} AS NVARCHAR(10)))" if col_status else "NULL"
+        ven_expr = f"LTRIM(RTRIM(CAST(ne.{col_ven} AS NVARCHAR(30))))" if col_ven else "NULL"
+        alma_expr = f"LTRIM(RTRIM(CAST(ne.{col_alma} AS NVARCHAR(30))))" if col_alma else "NULL"
+
+        fila = cur.execute(
+            f"SELECT LTRIM(RTRIM(CAST(ne.{col_factura} AS NVARCHAR(40)))) AS numero_nota, "
+            f"{sta_expr} AS status, {fec_expr} AS fecha_emision, "
+            f"LTRIM(RTRIM(CAST(ne.co_cli AS NVARCHAR(30)))) AS co_cli, {cli_expr} AS cliente, "
+            f"{ven_expr} AS co_ven, {alma_expr} AS co_alma "
+            f"FROM not_ent ne {join_cliente} "
+            f"WHERE LTRIM(RTRIM(CAST(ne.{col_factura} AS NVARCHAR(40)))) = ?",
+            num_nota,
+        ).fetchone()
+        if not fila:
+            return {"error": "Nota no encontrada en Profit (CRISTM25)"}
+        return {
+            "origen": "CRISTM25",
+            "numero_nota": fila[0],
+            "status": fila[1],
+            "fecha_emision": fila[2],
+            "co_cli": fila[3],
+            "cliente": fila[4],
+            "co_ven": fila[5],
+            "co_alma": fila[6],
+        }
+    except Exception as e:
+        return {"error": f"Consulta Profit falló: {e}"}
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def obtener_trazabilidad_nota(num_nota) -> dict:
+    """Auditoría SOLO LECTURA de una nota: responsables y fecha/hora de cada
+    etapa (picking, chequeo, embalaje), cantidad de ítems y puntos.
+
+    Fuentes: notas_entrega + movimientos_preparador + log_puntos (SQLite) y
+    not_ent de CRISTM25 (SQL Server, consulta degradable).
+    """
+    num = str(num_nota or "").strip()
+    if not num:
+        return {"error": "Número de nota vacío", "tipo": "NOTA"}
+    conn = get_db()
+    try:
+        nota = conn.execute(
+            "SELECT id, numero_nota, cliente, co_cli, estado, items_count, "
+            "auto_chequeado, preparador_id, fecha_creacion, fecha_completada "
+            "FROM notas_entrega WHERE numero_nota = ? LIMIT 1",
+            (num,),
+        ).fetchone()
+
+        base = {
+            "tipo": "NOTA",
+            "numero_nota": num,
+            "local": nota is not None,
+        }
+        etapas = []
+        if nota:
+            base.update({
+                "cliente": nota["cliente"] or "",
+                "co_cli": nota["co_cli"] or "",
+                "estado": nota["estado"],
+                "cantidad_items": int(nota["items_count"] or 0),
+                "auto_chequeado": bool(nota["auto_chequeado"]),
+                "fecha_creacion": nota["fecha_creacion"],
+                "fecha_completada": nota["fecha_completada"],
+            })
+            filas = conn.execute(
+                "SELECT usuario, accion, timestamp FROM movimientos_preparador "
+                "WHERE nota_id = ? ORDER BY timestamp ASC",
+                (nota["id"],),
+            ).fetchall()
+            for m in filas:
+                etapa = _etapa_desde_accion(m["accion"])
+                if etapa:
+                    etapas.append({
+                        "etapa": etapa,
+                        "usuario": m["usuario"],
+                        "accion": m["accion"],
+                        "fecha_hora": m["timestamp"],
+                    })
+
+        responsables = {"picking": None, "chequeo": None, "embalaje": None}
+        for e in etapas:
+            if responsables.get(e["etapa"]) is None:
+                responsables[e["etapa"]] = {
+                    "usuario": e["usuario"], "fecha_hora": e["fecha_hora"],
+                }
+
+        puntos = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT usuario, modulo, referencia_id, cantidad_renglones, "
+                "puntos_ganados, fecha_registro FROM log_puntos "
+                "WHERE referencia_id = ? ORDER BY fecha_registro ASC",
+                (num,),
+            ).fetchall()
+        ]
+
+        # Evidencia complementaria: log_puntos registra quién ejecutó el
+        # picking/chequeo aunque no exista movimiento de transición (p.ej. el
+        # chequeo automático persiste los puntos con el usuario real).
+        for p in puntos:
+            mod = p["modulo"]
+            if mod in responsables and responsables[mod] is None:
+                responsables[mod] = {
+                    "usuario": p["usuario"],
+                    "fecha_hora": p["fecha_registro"],
+                    "origen": "log_puntos",
+                }
+
+        payload = {
+            **base,
+            "etapas": etapas,
+            "responsables": responsables,
+            "puntos": puntos,
+        }
+        payload["profit"] = _consultar_nota_profit_readonly(num)
+        return payload
+    except Exception as e:
+        return {"error": str(e), "tipo": "NOTA"}
+    finally:
+        conn.close()
+
+
+def obtener_historial_ubicacion(co_art_o_nombre) -> dict:
+    """Historial SOLO LECTURA de movimientos de ubicación de un artículo
+    desde reportes_ubicacion. Acepta código o nombre (parcial).
+
+    Campos: usuario (responsable), co_art, ubicacion_anterior (desde),
+    ubicacion_nueva (hacia), fecha_hora (fecha).
+    """
+    termino = str(co_art_o_nombre or "").strip().upper()
+    if not termino:
+        return {"error": "Artículo vacío", "tipo": "ARTICULO"}
+    conn = get_db()
+    try:
+        art = conn.execute(
+            "SELECT codigo, descripcion FROM stock_maestro "
+            "WHERE codigo = ? OR codigo_barra = ? OR UPPER(descripcion) LIKE ? LIMIT 1",
+            (termino, termino, f"%{termino}%"),
+        ).fetchone()
+        if not art:
+            return {"error": f"No se encontró el artículo '{termino}'", "tipo": "ARTICULO"}
+
+        movs = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT usuario, co_art, desde, hacia, fecha FROM reportes_ubicacion "
+                "WHERE co_art = ? ORDER BY fecha DESC, rowid DESC LIMIT 20",
+                (art["codigo"],),
+            ).fetchall()
+        ]
+        return {
+            "tipo": "ARTICULO",
+            "codigo": art["codigo"],
+            "descripcion": art["descripcion"],
+            "total_movimientos": len(movs),
+            "historial": [
+                {
+                    "usuario": m["usuario"],
+                    "co_art": m["co_art"],
+                    "ubicacion_anterior": m["desde"],
+                    "ubicacion_nueva": m["hacia"],
+                    "fecha_hora": m["fecha"],
+                }
+                for m in movs
+            ],
+        }
+    except Exception as e:
+        return {"error": str(e), "tipo": "ARTICULO"}
+    finally:
+        conn.close()
+
+
+def formatear_trazabilidad_nota_para_prompt(data: dict) -> str:
+    """Convierte obtener_trazabilidad_nota() en bloque de texto inyectable."""
+    num = data.get("numero_nota", "")
+    lineas = [
+        f"--- TRAZABILIDAD DE NOTA #{num} (SOLO LECTURA) ---",
+        f"Local: {'SÍ' if data.get('local') else 'NO registrada en BD local'} | "
+        f"Estado: {data.get('estado') or 'N/A'} | Ítems: {data.get('cantidad_items') or 0}",
+        f"Cliente: {data.get('cliente') or 'N/A'} | Creada: {data.get('fecha_creacion') or 'N/A'}",
+    ]
+    if data.get("auto_chequeado"):
+        lineas.append("Chequeo: AUTOMÁTICO (nota < 3 ítems)")
+    for etapa in ("picking", "chequeo", "embalaje"):
+        r = (data.get("responsables") or {}).get(etapa)
+        if r:
+            lineas.append(
+                f"* {etapa.capitalize()}: {r.get('usuario')} el {r.get('fecha_hora')}"
+            )
+        else:
+            lineas.append(f"* {etapa.capitalize()}: sin registro")
+    if data.get("puntos"):
+        total = sum(float(p.get("puntos_ganados") or 0) for p in data["puntos"])
+        lineas.append(f"Puntos registrados: {total:g} pts ({len(data['puntos'])} registros)")
+    prof = data.get("profit") or {}
+    if prof and not prof.get("error"):
+        lineas.append(
+            f"Profit CRISTM25: {prof.get('status') or 'N/A'} | "
+            f"Emisión: {prof.get('fecha_emision') or 'N/A'} | "
+            f"Cliente Profit: {prof.get('cliente') or 'N/A'} (co_cli {prof.get('co_cli') or 'N/A'})"
+        )
+    else:
+        lineas.append(f"Profit CRISTM25: {(prof or {}).get('error') or 'sin consulta'}")
+    lineas.append("--- Fin de evidencias de nota ---")
+    return "\n".join(lineas)
+
+
+def formatear_historial_ubicacion_para_prompt(data: dict) -> str:
+    """Convierte obtener_historial_ubicacion() en bloque de texto inyectable."""
+    lineas = [
+        f"--- HISTORIAL DE MOVIMIENTOS DE UBICACIÓN ({data.get('codigo')}) ---",
+        f"Artículo: {data.get('descripcion')} | Movimientos registrados: {data.get('total_movimientos')}",
+    ]
+    for m in data.get("historial") or []:
+        lineas.append(
+            f"* {m.get('usuario')} movió {m.get('co_art')} de "
+            f"{m.get('ubicacion_anterior') or 'N/A'} a {m.get('ubicacion_nueva') or 'N/A'} "
+            f"el {m.get('fecha_hora')}"
+        )
+    if not data.get("historial"):
+        lineas.append("* Sin movimientos de ubicación registrados.")
+    lineas.append("--- Fin de evidencias de ubicación ---")
+    return "\n".join(lineas)
+
+
+# =============================================================================
 # MOTOR DE FEEDBACK Y AUTO-MEJORA (Aprendizaje de Skills)
 # =============================================================================
 
@@ -650,18 +991,36 @@ STATUS_FALLO_KEY = {503, 429, 401, 403}
 def llamar_nvidia_con_failover(
     prompt_sistema: str,
     mensaje_usuario: str,
-    model: str = "deepseek-ai/deepseek-v4-flash-free",
+    model: str = "meta/llama-3.1-8b-instruct",
     timeout: int = 60
 ) -> str | None:
     """
     Realiza la petición a NVIDIA NIM con rotación automática de API keys.
 
-    - Intenta con key_index_actual.
-    - Si la respuesta es 503/429/401/403, rota a la siguiente key y reintenta.
-    - Si las 5 keys fallan, retorna None (para que el caller caiga a Ollama).
+    Pool EXTENDIDO: primero las keys VERIFICADAS del pool de visión
+    (`ara_vision.NVIDIA_KEYS`, que responden 200 hoy; las keys históricas
+    del chat devolvían 403) y después `NVIDIA_API_KEYS`, deduplicadas.
+    - Si la respuesta es 503/429/401/403/404, rota a la siguiente key y
+      reintenta.
+    - Si todas las keys fallan, retorna None (el caller cae a Ollama).
     - Retorna el texto de respuesta o None.
     """
     import requests as req_lib
+
+    def _keys_extendidas():
+        extras = []
+        try:
+            import ara_vision
+            extras = list(getattr(ara_vision, "NVIDIA_KEYS", []) or [])
+        except Exception:
+            pass
+        vistas = set()
+        pool = []
+        for k in list(extras) + list(NVIDIA_API_KEYS):
+            if k and k not in vistas:
+                vistas.add(k)
+                pool.append(k)
+        return pool or list(NVIDIA_API_KEYS)
 
     url = "https://integrate.api.nvidia.com/v1/chat/completions"
     payload = {
@@ -675,17 +1034,18 @@ def llamar_nvidia_con_failover(
     }
 
     global _KEY_INDEX
+    keys = _keys_extendidas()
     keys_probadas = set()
 
     with _KEY_LOCK:
         idx_inicial = _KEY_INDEX
         idx = idx_inicial
 
-    while len(keys_probadas) < len(NVIDIA_API_KEYS):
+    while len(keys_probadas) < len(keys):
         if idx in keys_probadas:
             break
         keys_probadas.add(idx)
-        api_key = NVIDIA_API_KEYS[idx]
+        api_key = keys[idx]
 
         try:
             headers = {
@@ -697,37 +1057,37 @@ def llamar_nvidia_con_failover(
             if resp.status_code == 200:
                 texto = resp.json().get('choices', [{}])[0].get('message', {}).get('content', '')
                 with _KEY_LOCK:
-                    _KEY_INDEX = (idx + 1) % len(NVIDIA_API_KEYS)
+                    _KEY_INDEX = (idx + 1) % len(keys)
                 return texto
 
-            if resp.status_code in STATUS_FALLO_KEY:
+            if resp.status_code in STATUS_FALLO_KEY or resp.status_code == 404:
                 print(f"⚠️ [NVIDIA KEY POOL] Key #{idx + 1} falló (HTTP {resp.status_code}). Rotando...")
                 with _KEY_LOCK:
-                    _KEY_INDEX = (idx + 1) % len(NVIDIA_API_KEYS)
+                    _KEY_INDEX = (idx + 1) % len(keys)
                     idx = _KEY_INDEX
                 continue
 
             print(f"⚠️ [NVIDIA KEY POOL] Key #{idx + 1} error HTTP {resp.status_code}: {resp.text[:100]}")
             with _KEY_LOCK:
-                _KEY_INDEX = (idx + 1) % len(NVIDIA_API_KEYS)
+                _KEY_INDEX = (idx + 1) % len(keys)
                 idx = _KEY_INDEX
             continue
 
         except req_lib.exceptions.Timeout:
             print(f"⚠️ [NVIDIA KEY POOL] Key #{idx + 1} timeout. Rotando...")
             with _KEY_LOCK:
-                _KEY_INDEX = (idx + 1) % len(NVIDIA_API_KEYS)
+                _KEY_INDEX = (idx + 1) % len(keys)
                 idx = _KEY_INDEX
             continue
 
         except Exception as e:
             print(f"⚠️ [NVIDIA KEY POOL] Key #{idx + 1} excepción: {e}. Rotando...")
             with _KEY_LOCK:
-                _KEY_INDEX = (idx + 1) % len(NVIDIA_API_KEYS)
+                _KEY_INDEX = (idx + 1) % len(keys)
                 idx = _KEY_INDEX
             continue
 
-    print("❌ [NVIDIA KEY POOL] Las 5 keys fallaron. Cayendo a Ollama fallback.")
+    print(f"❌ [NVIDIA KEY POOL] {len(keys)} keys fallaron. Cayendo a Ollama fallback.")
     with _KEY_LOCK:
         _KEY_INDEX = 0
     return None

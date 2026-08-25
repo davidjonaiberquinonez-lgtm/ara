@@ -72,10 +72,10 @@
         "hora": "08:47 AM"
     },
     "CR000375": {
-        "cantidad": 176,
+        "cantidad": 145,
         "usuario": "JONAIBER QUIÑONEZ",
-        "fecha": "27-07-26",
-        "hora": "08:43 AM"
+        "fecha": "05-08-26",
+        "hora": "09:43AM"
     },
     "CR000459": {
         "cantidad": 40,
@@ -210,10 +210,10 @@
         "hora": "09:24 AM"
     },
     "CR000381": {
-        "cantidad": 28,
+        "cantidad": 8,
         "usuario": "JONAIBER QUIÑONEZ",
-        "fecha": "29-06-26",
-        "hora": "09:24 AM"
+        "fecha": "05-08-26",
+        "hora": "06:41 PM"
     },
     "CR000008": {
         "cantidad": 48,
@@ -352,5 +352,35 @@
         "usuario": "REIMER QUIROZ",
         "fecha": "27-07-26",
         "hora": "09:30 AM"
+    },
+    "CR000422": {
+        "cantidad": 10,
+        "usuario": "JONAIBER QUIÑONEZ",
+        "fecha": "05-08-26",
+        "hora": "09:43AM"
+    },
+    "CR000250": {
+        "cantidad": 121,
+        "usuario": "JONAIBER QUIÑONEZ",
+        "fecha": "05-08-26",
+        "hora": "06:41 PM"
+    },
+    "CR000250C": {
+        "cantidad": 7,
+        "usuario": "JONAIBER QUIÑONEZ",
+        "fecha": "05-08-26",
+        "hora": "06:41 PM"
+    },
+    "CR000354": {
+        "cantidad": 0,
+        "usuario": "JONAIBER QUIÑONEZ",
+        "fecha": "05-08-26",
+        "hora": "06:41 PM"
+    },
+    "CR000434": {
+        "cantidad": 13,
+        "usuario": "JONAIBER QUIÑONEZ",
+        "fecha": "05-08-26",
+        "hora": "06:41 PM"
     }
 }

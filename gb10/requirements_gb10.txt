@@ -1,0 +1,9 @@
+# Dependencias extra para los scripts de gb10/ (pyodbc ya vive en ara/requirements.txt)
+pymysql==1.1.1
+python-dotenv==1.0.1
+
+# Solo si GDX_AUTH_MODE=jwt (gb10/auth/token_auth.py) — no requerido con bearer estático
+PyJWT==2.10.1
+
+# Solo si se decide migrar ARA_LLM de SQLite a PostgreSQL (ver gb10/POSTGRES_MIGRACION.md)
+# psycopg[binary]==3.2.3

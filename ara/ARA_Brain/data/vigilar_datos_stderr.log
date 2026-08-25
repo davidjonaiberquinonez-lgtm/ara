@@ -1,0 +1,348 @@
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 95, in _consultar_profit
+    return cur.execute(sql, params).fetchall()
+           ~~~~~~~~~~~^^^^^^^^^^^^^
+pyodbc.Error: ('01000', '[01000] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionWrite (send()). (10054) (SQLExecDirectW); [01000] [Microsoft][ODBC SQL Server Driver][DBNETLIB]Error general de red. Consulte la documentación de la red. (11)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 95, in _consultar_profit
+    return cur.execute(sql, params).fetchall()
+           ~~~~~~~~~~~^^^^^^^^^^^^^
+pyodbc.Error: ('01000', '[01000] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionWrite (send()). (10054) (SQLExecDirectW); [01000] [Microsoft][ODBC SQL Server Driver][DBNETLIB]Error general de red. Consulte la documentación de la red. (11)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 95, in _consultar_profit
+    return cur.execute(sql, params).fetchall()
+           ~~~~~~~~~~~^^^^^^^^^^^^^
+pyodbc.Error: ('01000', '[01000] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionWrite (send()). (10054) (SQLExecDirectW); [01000] [Microsoft][ODBC SQL Server Driver][DBNETLIB]Error general de red. Consulte la documentación de la red. (11)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (64)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 321, in sincronizar_ubicaciones
+    n, _ = _sincronizador.sincronizar_ubicaciones()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 264, in sincronizar_ubicaciones
+    filas = self._leer_ubicaciones()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 152, in _leer_ubicaciones
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<4 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (64)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 302, in sincronizar_campo7
+    return _sincronizador.sincronizar()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 289, in sincronizar
+    n_ubi, _ = self.sincronizar_ubicaciones()
+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 264, in sincronizar_ubicaciones
+    filas = self._leer_ubicaciones()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 152, in _leer_ubicaciones
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<4 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (64)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 321, in sincronizar_ubicaciones
+    n, _ = _sincronizador.sincronizar_ubicaciones()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 264, in sincronizar_ubicaciones
+    filas = self._leer_ubicaciones()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 152, in _leer_ubicaciones
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<4 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (64)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (53)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 311, in sincronizar_stock
+    n, _ = _sincronizador.sincronizar_stock()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 199, in sincronizar_stock
+    filas = self._leer_stock()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 136, in _leer_stock
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<9 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (64)')
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 321, in sincronizar_ubicaciones
+    n, _ = _sincronizador.sincronizar_ubicaciones()
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 264, in sincronizar_ubicaciones
+    filas = self._leer_ubicaciones()
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 152, in _leer_ubicaciones
+    return self._consultar_profit(
+           ~~~~~~~~~~~~~~~~~~~~~~^
+        """
+        ^^^
+    ...<4 lines>...
+        """
+        ^^^
+    )
+    ^
+  File "C:\ARA_PROYECT\ara\ARA_Brain\vigilar_datos.py", line 92, in _consultar_profit
+    conn = pyodbc.connect(self._conn_str, timeout=self._timeout)
+pyodbc.OperationalError: ('08001', '[08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]No existe el servidor SQL Server o se ha denegado el acceso al mismo. (17) (SQLDriverConnect); [08001] [Microsoft][ODBC SQL Server Driver][DBNETLIB]ConnectionOpen (Connect()). (64)')

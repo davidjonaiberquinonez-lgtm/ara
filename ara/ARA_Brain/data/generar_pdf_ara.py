@@ -49,7 +49,7 @@ class NumberedCanvas(canvas.Canvas):
         self.drawRightString(576, 30, page_text)
         self.restoreState()
 
-def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
+def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v4.46.pdf"):
     doc = SimpleDocTemplate(
         filename,
         pagesize=letter,
@@ -164,7 +164,7 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     # =====================================================================
     header_content = [
         [Paragraph("PROYECTO ARA — AI WAREHOUSE & LOGISTICS MIDDLEWARE", styles['DocTitle'])],
-        [Paragraph("Dossier Técnico, Arquitectura Hexagonal, Telemetría GPS, Motor Local Edge y Control Profit Plus", styles['DocSubTitle'])]
+        [Paragraph("Dossier Técnico, Arquitectura Hexagonal, Bandeja Multicanal, Atención al Cliente vía WhatsApp y Preparación GDX GB10", styles['DocSubTitle'])]
     ]
 
     header_table = Table(header_content, colWidths=[540])
@@ -180,9 +180,9 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     # Meta datos rápidos
     meta_data = [
         [
-            Paragraph("<b>Estado:</b> v3.10 Enterprise Ready", styles['BodyCustom']),
-            Paragraph("<b>Fecha:</b> Julio 2026", styles['BodyCustom']),
-            Paragraph("<b>Arquitectura:</b> Hexagonal + Hybrid AI + Real-Time Telemetry", styles['BodyCustom'])
+            Paragraph("<b>Estado:</b> v4.46 Enterprise Ready", styles['BodyCustom']),
+            Paragraph("<b>Fecha:</b> Agosto 2026", styles['BodyCustom']),
+            Paragraph("<b>Arquitectura:</b> Hexagonal + IA Híbrida Conectada a Datos Reales + GDX GB10 Staged", styles['BodyCustom'])
         ]
     ]
     meta_table = Table(meta_data, colWidths=[180, 180, 180])
@@ -196,15 +196,16 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     story.append(Spacer(1, 12))
 
     # =====================================================================
-    # 1. CAPACIDADES OPERATIVAS Y MÓDULOS DE VANGUARDIA (v3.10)
+    # 1. CAPACIDADES OPERATIVAS Y MÓDULOS DE VANGUARDIA (v3.10 → v4.46)
     # =====================================================================
-    story.append(Paragraph("1. Capacidades Operativas y Módulos de Vanguardia (v3.10)", styles['SectionHeader']))
+    story.append(Paragraph("1. Capacidades Operativas y Módulos de Vanguardia (v3.10 → v4.46)", styles['SectionHeader']))
     story.append(HRFlowable(width="100%", thickness=1.5, color=c_secondary, spaceAfter=8))
 
     story.append(Paragraph(
         "Proyecto ARA es un middleware logístico de alto rendimiento que integra inteligencia artificial "
         "multimodal, visión por computador, telemetría GPS en tiempo real y un motor de trazabilidad "
-        "hexagonal. A continuación se describen los módulos implementados hasta v3.10.",
+        "hexagonal. A continuación se describen los módulos implementados hasta v3.10 y las incorporaciones "
+        "posteriores (v4.x): mensajería interna y con clientes, y conexión del asistente a datos reales.",
         styles['BodyCustom']
     ))
 
@@ -303,13 +304,144 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
         styles['BulletCustom']
     ))
 
+    # F. Bandeja de Mensajes, Atención al Cliente y ARA Bot conectado a datos reales (v4.x)
+    story.append(Paragraph("F. Bandeja Interna, Atención al Cliente vía WhatsApp y ARA Bot Conectado a Datos Reales (v4.36–v4.46)", styles['SubSectionHeader']))
+    story.append(Paragraph(
+        "• <b>Disciplina Anti-Zombi de Conexiones:</b> Auditoría completa de los 27 tools de NvidiaBrain "
+        "y de los adaptadores Python de Rutas — toda conexión SQL Server/MySQL (PHP "
+        "<font face='Courier' size='8'>ConnectionWrapper</font> y Python <font face='Courier' size='8'>pyodbc.pooling=False</font>) "
+        "se abre corta y se cierra en <font face='Courier' size='8'>finally</font>, nunca queda un SPID dormido "
+        "esperando la siguiente consulta.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <b>Bandeja de Mensajes:</b> Chat interno par-a-par entre todos los usuarios del sistema "
+        "(un hilo privado y simétrico por pareja, no un canal compartido), con el asistente "
+        "'ARA - Intelligent' siempre anclado primero. Incluye tarjeta de perfil por usuario (foto + "
+        "descripción, visibles para los demás), envío real de fotos/audio/archivos (grabadora de "
+        "audio en el navegador vía MediaRecorder, sin selector de archivos), stickers, flechitas de "
+        "enviado/entregado/leído correctas por remitente, y retención automática de 7 días exclusiva "
+        "de este módulo (mensajería operativa diaria, no un registro permanente).",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <b>Atención al Cliente vía WhatsApp (Meta Cloud API):</b> Módulo nuevo y separado de la "
+        "Bandeja interna — cada agente humano puede tener su propio número de WhatsApp Business "
+        "(arquitectura de una sola WABA con múltiples <font face='Courier' size='8'>phone_number_id</font>). "
+        "El cliente se autentica por código Profit (co_cli) más los últimos 4 dígitos de su teléfono "
+        "registrado; una vez validado, la IA solo puede consultar ese cliente puntual (nunca otro) y "
+        "responde saldo, cartera y documentos pendientes con datos reales del ERP. Un agente puede "
+        "tomar el control de cualquier conversación en cualquier momento, pausando la respuesta "
+        "automática de la IA.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <b>ARA Bot Conectado a Datos Reales (no reentrenamiento de pesos):</b> En vez de un "
+        "fine-tuning del modelo local (Ollama qwen2.5-coder:3b) — que requeriría GPU dedicada e "
+        "infraestructura de entrenamiento inexistente en el proyecto — se conectó el bot directamente "
+        "a las tablas SQLite reales mediante consultas verificadas: cruce "
+        "<font face='Courier' size='8'>movimientos_preparador.nota_id = notas_entrega.id</font> para "
+        "responder qué sacó cada preparador en una nota puntual (con su responsable real vía "
+        "<font face='Courier' size='8'>preparador_id</font>), y "
+        "<font face='Courier' size='8'>reportes_ubicacion</font> filtrado por código de artículo para "
+        "reubicaciones físicas reales. Regla absoluta en todos los casos: si el dato no existe, el bot "
+        "lo dice explícitamente — nunca inventa un preparador, artículo o traslado.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <b>Discrepancias de Stock con Regla de Negocio Real:</b> Las tarjetas y el detalle de "
+        "auditoría distinguen explícitamente Faltante / Sobrante / Verificado (antes se agrupaba todo "
+        "como 'Discrepancia' genérica), coloreadas según el resultado real de cada artículo "
+        "(físico vs. teórico), reemplazando el diálogo nativo del navegador por una tarjeta propia.",
+        styles['BulletCustom']
+    ))
+
     story.append(Spacer(1, 10))
 
     # =====================================================================
-    # 2. MATRIZ DE ARQUITECTURA TÉCNICA Y ESCALABILIDAD
+    # 2. PREPARACIÓN NVIDIA GDX GB10 (BLACKWELL) — ESTACIÓN DE IA LOCAL
     # =====================================================================
     story.append(PageBreak())
-    story.append(Paragraph("2. Matriz de Arquitectura Técnica y Escalabilidad", styles['SectionHeader']))
+    story.append(Paragraph("2. Preparación NVIDIA GDX GB10 (Blackwell) — Estación de IA Local", styles['SectionHeader']))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=c_secondary, spaceAfter=8))
+
+    story.append(Paragraph(
+        "El proyecto adquirió una estación NVIDIA GDX GB10 (arquitectura Blackwell) para inferencia "
+        "de IA local dedicada. Al cierre de este documento el equipo físico está en tránsito — "
+        "todavía no está instalado en sitio — pero toda la capa de software que lo va a recibir "
+        "quedó dejada lista para ejecutar (carpeta <font face='Courier' size='8'>gb10/</font>), sin "
+        "activar nada ni tocar la configuración de producción actual.",
+        styles['BodyCustom']
+    ))
+
+    story.append(Paragraph("Arquitectura de 3 capas diseñada", styles['SubSectionHeader']))
+    story.append(Paragraph(
+        "• <b>Capa 1 — Fuentes remotas reales (solo lectura):</b> SQL Server <font face='Courier' size='8'>PRUEB25</font> "
+        "(192.168.4.20:1433, espejo de pruebas de CRISTM25/Profit) y MySQL "
+        "<font face='Courier' size='8'>barquisimeto</font> (192.168.4.148:3306, sistema legacy de Barquisimeto) — "
+        "dos motores de base de datos distintos, verificados en vivo contra el esquema real (231 "
+        "tablas en PRUEB25), nunca asumidos.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <b>Capa 2 — Espejo local en la GB10:</b> SQL Server Express/local + MySQL/MariaDB local, "
+        "mismas tablas y columnas que la Capa 1, para que los adaptadores PHP/Python existentes "
+        "(<font face='Courier' size='8'>ConnectionWrapper</font>) apunten ahí solo cambiando variables "
+        "de entorno — cero cambios de código. Absorbe el volumen de consultas por departamento sin "
+        "golpear la red hacia el ERP en cada request.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <b>Capa 3 — ARA_LLM local (SQLite en la GB10):</b> contexto del asistente, caché de "
+        "adaptadores, logs de operación, circuit breakers y embeddings — corre en el propio equipo, "
+        "sin salir a internet.",
+        styles['BulletCustom']
+    ))
+
+    story.append(Paragraph("Piezas dejadas listas (staged, ninguna activa todavía)", styles['SubSectionHeader']))
+    story.append(Paragraph(
+        "• <font face='Courier' size='8'>inference/engine_config.py</font>: abstracción de motor de "
+        "inferencia (Ollama / vLLM / Triton) seleccionable por variable de entorno — la decisión final "
+        "de motor se toma con la GDX físicamente en mano y benchmarks reales, no antes.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <font face='Courier' size='8'>hardware_detect.py</font>: detección de GPU NVIDIA vía "
+        "<font face='Courier' size='8'>nvidia-smi</font> sin dependencias nuevas — probado en la "
+        "máquina de desarrollo actual (reporta correctamente 'sin GPU' donde no la hay).",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <font face='Courier' size='8'>mirror_sqlserver_pruebas25.py</font> / "
+        "<font face='Courier' size='8'>mirror_mysql_barquisimeto.py</font> / "
+        "<font face='Courier' size='8'>sync_cron.py</font>: creación de esquema y sincronización "
+        "periódica de la Capa 2, reutilizando el mismo patrón anti-zombi de conexión corta y "
+        "<font face='Courier' size='8'>WITH (NOLOCK)</font> que ya usa "
+        "<font face='Courier' size='8'>vigilar_datos.py</font> en producción — nunca escribe en las "
+        "fuentes reales de la Capa 1.",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• <font face='Courier' size='8'>auth/token_auth.py</font>: autenticación bearer/JWT para "
+        "endpoints internos servicio-a-servicio de la GDX (no reemplaza la autenticación de clientes "
+        "del módulo de Atención al Cliente, son capas distintas).",
+        styles['BulletCustom']
+    ))
+    story.append(Paragraph(
+        "• Runbook de 9 pasos documentado (instalación de motores locales → mirror de esquema → "
+        "validación de las 3 capas → arranque del sync continuo → repunte de "
+        "<font face='Courier' size='8'>ConnectionWrapper</font> a la Capa 2 vía variables de entorno) "
+        "para que el día que llegue el equipo, el traspaso sea mecánico y verificable, no improvisado.",
+        styles['BulletCustom']
+    ))
+
+    story.append(Spacer(1, 10))
+
+    # =====================================================================
+    # 3. MATRIZ DE ARQUITECTURA TÉCNICA Y ESCALABILIDAD
+    # =====================================================================
+    story.append(PageBreak())
+    story.append(Paragraph("3. Matriz de Arquitectura Técnica y Escalabilidad", styles['SectionHeader']))
     story.append(HRFlowable(width="100%", thickness=1.5, color=c_secondary, spaceAfter=8))
 
     arq_data = [
@@ -364,15 +496,15 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     story.append(Spacer(1, 12))
 
     # =====================================================================
-    # 3. MATRIZ COMPARATIVA DE MERCADO
+    # 4. MATRIZ COMPARATIVA DE MERCADO
     # =====================================================================
-    story.append(Paragraph("3. Matriz Comparativa: Proyecto ARA v3.10 vs. Mercado", styles['SectionHeader']))
+    story.append(Paragraph("4. Matriz Comparativa: Proyecto ARA v4.46 vs. Mercado", styles['SectionHeader']))
     story.append(HRFlowable(width="100%", thickness=1.5, color=c_secondary, spaceAfter=8))
 
     comp_data = [
         [
             Paragraph("<b>Criterio</b>", styles['TableHeaderText']),
-            Paragraph("<b>Proyecto ARA v3.10</b>", styles['TableHeaderText']),
+            Paragraph("<b>Proyecto ARA v4.46</b>", styles['TableHeaderText']),
             Paragraph("<b>WMS Tradicionales (SAP/Oracle)</b>", styles['TableHeaderText']),
             Paragraph("<b>Lectores RF / Básicos</b>", styles['TableHeaderText'])
         ],
@@ -427,10 +559,10 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     story.append(Spacer(1, 12))
 
     # =====================================================================
-    # 4. ROADMAP ESTRATÉGICO
+    # 5. ROADMAP ESTRATÉGICO
     # =====================================================================
     story.append(PageBreak())
-    story.append(Paragraph("4. Roadmap Estratégico & Conclusión", styles['SectionHeader']))
+    story.append(Paragraph("5. Roadmap Estratégico & Conclusión", styles['SectionHeader']))
     story.append(HRFlowable(width="100%", thickness=1.5, color=c_secondary, spaceAfter=8))
 
     # Corto Plazo
@@ -440,6 +572,12 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
             Paragraph("<b>Objetivo</b>", styles['TableHeaderText']),
             Paragraph("<b>Tecnología</b>", styles['TableHeaderText']),
             Paragraph("<b>Impacto Esperado</b>", styles['TableHeaderText'])
+        ],
+        [
+            Paragraph("<b>Inmediato</b>", styles['TableText']),
+            Paragraph("Puesta en marcha de la estación NVIDIA GDX GB10 (Blackwell) al llegar el equipo: mirror local de 3 capas ya dejado listo, runbook de 9 pasos verificable.", styles['TableText']),
+            Paragraph("GDX GB10, motor de inferencia local (Ollama/vLLM/Triton), SQL Server Express + MySQL local.", styles['TableText']),
+            Paragraph("Inferencia dedicada por departamento sin saturar el ERP central.", styles['TableText'])
         ],
         [
             Paragraph("<b>Corto Plazo</b>", styles['TableText']),
@@ -501,16 +639,18 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     conclusion_data = [
         [
             Paragraph(
-                "<b>Conclusión Ejecutiva:</b> Proyecto ARA v3.10 demuestra que un middleware logístico "
+                "<b>Conclusión Ejecutiva:</b> Proyecto ARA v4.46 demuestra que un middleware logístico "
                 "construido con Python, Flask, SQLite y JS Vanilla puede competir —y superar— en "
                 "capacidades a sistemas corporativos que requieren inversiones millonarias en licencias, "
                 "infraestructura y consultoría. Su arquitectura hexagonal, motor de IA híbrida con "
-                "failover local, trazabilidad de estados atómicos y telemetría GPS en tiempo real "
-                "lo posicionan como una solución Enterprise Ready, escalable y de mantenimiento "
-                "casi nulo. El sistema está preparado para escalar a 10,000+ conexiones mediante "
-                "PostgreSQL + Redis, y su capa de visión local con LLaVA permite operaciones "
-                "offline sin depender de APIs externas. ARA no es solo un WMS: es el cerebro "
-                "logístico del almacén del futuro.",
+                "failover local y ahora conectada a datos reales (nunca inventados), trazabilidad de "
+                "estados atómicos, telemetría GPS en tiempo real, mensajería interna y atención al "
+                "cliente vía WhatsApp lo posicionan como una solución Enterprise Ready, escalable y de "
+                "mantenimiento casi nulo. El sistema está preparado para escalar a 10,000+ conexiones "
+                "mediante PostgreSQL + Redis, su capa de visión local con LLaVA permite operaciones "
+                "offline sin depender de APIs externas, y la arquitectura de 3 capas para la estación "
+                "NVIDIA GDX GB10 (Blackwell) ya está dejada lista para el día que el equipo físico "
+                "llegue a sitio. ARA no es solo un WMS: es el cerebro logístico del almacén del futuro.",
                 styles['BodyCustom']
             )
         ]
@@ -529,7 +669,7 @@ def generar_pdf_ara(filename="Reporte_Ejecutivo_Proyecto_ARA_v3.10.pdf"):
     closing_data = [
         [
             Paragraph(
-                "<i>Documento generado automáticamente por Proyecto ARA — Julio 2026.</i>",
+                "<i>Documento generado automáticamente por Proyecto ARA — Agosto 2026.</i>",
                 ParagraphStyle('Closing', parent=styles['Normal'], fontSize=7.5, leading=10,
                                textColor=colors.HexColor("#94a3b8"), alignment=1)
             )

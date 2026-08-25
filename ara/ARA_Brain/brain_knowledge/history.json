@@ -222,5 +222,10 @@
         "usuario": "JONAIBER QUIÑONEZ",
         "p": "Finalizar Preparación",
         "r": "El usuario JONAIBER QUIÑONEZ autenticado con éxito cerró la nota 350090."
+    },
+    {
+        "usuario": "Operador",
+        "p": "Reportar Faltante",
+        "r": "ALERTA: El usuario Operador reporta que el artículo Misc0880 NO existe en el estante para la nota 72169262."
     }
 ]

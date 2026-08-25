@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+tests/_tmp_php/
+data/cache_vectorial/

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Fondo Gradiente Estilo Apple Dark Mode -->
+    <linearGradient id="araBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B0F19" />
+      <stop offset="100%" stop-color="#161F33" />
+    </linearGradient>
+
+    <!-- Metalizado Titanio para el Isotipo 'A' -->
+    <linearGradient id="titanium" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#94A3B8" />
+    </linearGradient>
+
+    <!-- Neón Cian para el Núcleo / Crossbar -->
+    <linearGradient id="cyanTech" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F2FE" />
+      <stop offset="100%" stop-color="#4FACFE" />
+    </linearGradient>
+
+    <!-- Sombra sutil interna -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Base Squircle Estilo iOS -->
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#araBg)" stroke="#1E293B" stroke-width="6"/>
+
+  <!-- 'A' Monograma Futurgéométrico -->
+  <g transform="translate(0, 8)">
+    <!-- Pierna Izquierda y Derecha (Vértice 'A') -->
+    <path d="M 256 120 L 368 360 H 304 L 256 250 L 208 360 H 144 Z" fill="url(#titanium)" />
+    
+    <!-- Barra Horizontal Tecnológica (Core Inteligente) -->
+    <polygon points="210,290 302,290 286,252 226,252" fill="url(#cyanTech)" filter="url(#glow)"/>
+  </g>
+</svg>

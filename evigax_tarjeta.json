@@ -1,0 +1,47 @@
+{
+  "fuente": "stock_maestro (SQLite local ARA — espejo del ERP Profit, no alcanzado via SQLServer desde este entorno)",
+  "actualizado_el": "2026-08-10 12:17:51",
+  "data": {
+    "success": true,
+    "tabla_origen": "stock_maestro (SQLite local ARA — espejo del ERP Profit)",
+    "busqueda": "evigax",
+    "total_encontrados": 2,
+    "productos": [
+      {
+        "codigo": "MD02009",
+        "nombre": "SIMETICONA 125MG (EVIGAX) CJ X 10 CAPS BLANDAS (VIVAX) FV. 04/2028",
+        "principio_activo": "SIMETICONA 125MG",
+        "vencimiento": null,
+        "stock": 178,
+        "precio": null,
+        "desglose_almacenes": {
+          "despacho_SC": 148,
+          "deposito_SC": 0,
+          "despacho_BQTO": 340,
+          "deposito_BQTO": 0
+        },
+        "ubicacion": "4MDS03-P3",
+        "codigo_barra": "7592432900032",
+        "actualizado_el": "2026-08-10 12:17:51"
+      },
+      {
+        "codigo": "MD03163",
+        "nombre": "SIMETICONA 125MG (EVIGAX) CJ X 20 CAPS BLANDAS (VIVAX) FV. 07/2028",
+        "principio_activo": "SIMETICONA 125MG",
+        "vencimiento": null,
+        "stock": 125,
+        "precio": null,
+        "desglose_almacenes": {
+          "despacho_SC": 90,
+          "deposito_SC": 0,
+          "despacho_BQTO": 73,
+          "deposito_BQTO": 40
+        },
+        "ubicacion": "4MDS01-P6",
+        "codigo_barra": "7592432010212",
+        "actualizado_el": "2026-08-10 12:17:51"
+      }
+    ]
+  },
+  "card": "📦 *RESULTADOS DE INVENTARIO* (2 Ítems encontrados)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🔹 *CÓDIGO:* MD02009\n📝 *Producto:* SIMETICONA 125MG (EVIGAX) CJ X 10 CAPS BLANDAS (VIVAX) FV. 04/2028\n📅 *Vencimiento:* N/A\n📊 *Stock Total:* 178 und\n💵 *Precio:* N/A\n──────────────────────────────\n🔹 *CÓDIGO:* MD03163\n📝 *Producto:* SIMETICONA 125MG (EVIGAX) CJ X 20 CAPS BLANDAS (VIVAX) FV. 07/2028\n📅 *Vencimiento:* N/A\n📊 *Stock Total:* 125 und\n💵 *Precio:* N/A\n──────────────────────────────"
+}

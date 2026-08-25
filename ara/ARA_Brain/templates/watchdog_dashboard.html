@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARA — Monitor de Bloqueos SQL</title>
+<style>
+    :root {
+        --bg: #0f172a; --panel: #1e293b; --panel-2: #16213a; --border: #334155;
+        --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8;
+        --ok: #22c55e; --warn: #f59e0b; --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; display:flex; align-items:center; gap:10px; }
+    .sub { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
+    .pulso { width:9px; height:9px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok); animation: parpadeo 1.6s infinite; }
+    @keyframes parpadeo { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+    .grid-resumen { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:24px; }
+    .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+    .card .num { font-size:26px; font-weight:800; }
+    .card .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .card.kills .num { color:var(--danger); }
+    .card.errores .num { color:var(--warn); }
+    .card.huecos .num { color:var(--warn); }
+    .card.ok .num { color:var(--ok); }
+
+    .seccion { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:20px; }
+    .seccion h2 { font-size:14px; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
+    .seccion h2 .badge { background:var(--panel-2); color:var(--muted); font-size:10px; padding:2px 8px; border-radius:8px; font-weight:600; }
+
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th { text-align:left; color:var(--muted); font-weight:600; padding:6px 8px; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; }
+    td { padding:7px 8px; border-bottom:1px solid rgba(51,65,85,0.5); }
+    tr:hover td { background: rgba(56,189,248,0.05); }
+
+    .pill { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10.5px; font-weight:700; }
+    .pill-kickserver { background:rgba(245,158,11,0.15); color:var(--warn); }
+    .pill-bloqueador { background:rgba(239,68,68,0.15); color:var(--danger); }
+    .pill-ok { background:rgba(34,197,94,0.15); color:var(--ok); }
+    .pill-err { background:rgba(239,68,68,0.15); color:var(--danger); }
+    .pill-kill { background:rgba(245,158,11,0.15); color:var(--warn); }
+
+    .fila-culpable-top td { background: rgba(239,68,68,0.06); }
+    .mono { font-family: 'Consolas', monospace; }
+    .vacio { color:var(--muted); font-size:12px; padding:12px; text-align:center; }
+
+    .vivo-off { color: var(--muted); font-size:12px; padding: 10px; background: var(--panel-2); border-radius:8px; }
+    .vivo-item { background: rgba(239,68,68,0.08); border-left:3px solid var(--danger); border-radius:6px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; }
+
+    /* ── Mini-gráfico de estado en vivo (estilo ticker/trading) ────────── */
+    .chart-wrap { position: relative; }
+    #chart-vivo { display:block; width:100%; height:120px; }
+    .chart-linea { fill:none; stroke:var(--accent); stroke-width:2px; stroke-linejoin:round; stroke-linecap:round; }
+    .chart-area { fill:url(#gradArea); opacity:0.5; }
+    .chart-grid { stroke:var(--border); stroke-width:1px; opacity:0.5; }
+    .chart-punto-final { fill:var(--accent); }
+    .chart-punto-final-halo { fill:var(--accent); opacity:0.25; }
+    .chart-eje-txt { fill:var(--muted); font-size:9px; font-family:'Segoe UI',sans-serif; }
+    .chart-valor-actual { font-size:22px; font-weight:800; color:var(--accent); }
+    .chart-crosshair { stroke:var(--muted); stroke-width:1px; stroke-dasharray:3,3; pointer-events:none; }
+    .chart-tooltip {
+        position:absolute; background:#0b1120; border:1px solid var(--border); border-radius:6px;
+        padding:5px 9px; font-size:11px; color:var(--text); pointer-events:none; white-space:nowrap;
+        transform:translate(-50%, -130%); display:none; box-shadow:0 4px 10px rgba(0,0,0,0.4);
+    }
+
+    .scroll-y { max-height: 420px; overflow-y: auto; }
+    footer { color: var(--muted); font-size:11px; text-align:center; margin-top: 30px; }
+
+    .filtros { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; align-items:end; }
+    .filtros .campo { display:flex; flex-direction:column; gap:3px; }
+    .filtros label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .filtros input, .filtros select {
+        background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+        border-radius:6px; padding:6px 8px; font-size:12px; min-width:120px;
+    }
+    .filtros button {
+        background:var(--accent); color:#0f172a; border:none; border-radius:6px;
+        padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer;
+    }
+    .filtros button.limpiar { background:var(--panel-2); color:var(--muted); border:1px solid var(--border); }
+    .filtros-activos { font-size:11px; color:var(--accent); margin-bottom:10px; }
+
+    .ranking-mini { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px; }
+    .ranking-mini .col h4 { font-size:11px; color:var(--muted); text-transform:uppercase; margin:0 0 8px; }
+    .ranking-mini .fila { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid rgba(51,65,85,0.4); font-size:12.5px; }
+    .ranking-mini .fila b { color:var(--warn); }
+    .clic { cursor:pointer; text-decoration:underline dotted; }
+
+    .spid-lookup { display:flex; gap:8px; align-items:end; margin-bottom:14px; }
+    .spid-lookup input {
+        background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+        border-radius:6px; padding:7px 10px; font-size:13px; width:140px;
+    }
+    .spid-lookup button {
+        background:var(--accent); color:#0f172a; border:none; border-radius:6px;
+        padding:8px 16px; font-size:12px; font-weight:700; cursor:pointer;
+    }
+    .spid-info-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+    .spid-info-grid .campo-info { background:var(--panel-2); border-radius:6px; padding:8px 10px; }
+    .spid-info-grid .campo-info .k { font-size:10px; color:var(--muted); text-transform:uppercase; }
+    .spid-info-grid .campo-info .v { font-size:13px; font-weight:600; margin-top:2px; word-break:break-word; }
+    .sql-box {
+        background:#0b1120; border:1px solid var(--border); border-radius:8px;
+        padding:12px; font-family:'Consolas',monospace; font-size:12px; color:#a3e635;
+        white-space:pre-wrap; word-break:break-word; max-height:280px; overflow-y:auto;
+    }
+    .sql-box-label { font-size:11px; color:var(--muted); text-transform:uppercase; margin:10px 0 6px; }
+</style>
+</head>
+<body>
+
+<h1><span class="pulso"></span> ARA — Monitor de Bloqueos SQL Server</h1>
+<div class="sub">Actualización automática cada 5s · Fuentes: <span class="mono">watchdog_bloqueos_sql.log</span> + <span class="mono">logs/kill_switch_*.txt</span> · Última actualización: <span id="ts-actualizado">—</span></div>
+
+<div class="grid-resumen" id="resumen"></div>
+
+<div class="seccion">
+    <h2>🔴 En vivo ahora mismo <span class="badge" id="badge-vivo">consultando…</span></h2>
+    <div id="vivo"></div>
+</div>
+
+<div class="seccion">
+    <h2>🔎 ¿Qué está consultando este SPID? <span class="badge">solo lectura, en vivo — texto real de la query</span></h2>
+    <div class="spid-lookup">
+        <div>
+            <label style="display:block; font-size:10px; color:var(--muted); text-transform:uppercase; margin-bottom:3px;">SPID</label>
+            <input type="text" id="spid-input" placeholder="ej. 346" inputmode="numeric">
+        </div>
+        <button onclick="consultarSpidQuery()">Consultar</button>
+    </div>
+    <div id="spid-resultado"></div>
+</div>
+
+<div class="seccion">
+    <h2>📈 Pulso del servidor <span class="badge">sesiones bloqueando ahora — muestreo cada 5s</span></h2>
+    <div style="display:flex; gap:16px; align-items:flex-start;">
+        <div>
+            <div class="chart-valor-actual" id="chart-valor">0</div>
+            <div style="font-size:10px; color:var(--muted); text-transform:uppercase;">bloqueador(es) activo(s)</div>
+        </div>
+        <div class="chart-wrap" style="flex:1;">
+            <svg id="chart-vivo" viewBox="0 0 600 120" preserveAspectRatio="none">
+                <defs>
+                    <linearGradient id="gradArea" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.5"/>
+                        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+                    </linearGradient>
+                </defs>
+                <line class="chart-grid" x1="0" y1="30" x2="600" y2="30"/>
+                <line class="chart-grid" x1="0" y1="60" x2="600" y2="60"/>
+                <line class="chart-grid" x1="0" y1="90" x2="600" y2="90"/>
+                <path id="chart-area-path" class="chart-area"></path>
+                <path id="chart-linea-path" class="chart-linea"></path>
+                <circle id="chart-punto-halo" class="chart-punto-final-halo" r="7" cx="0" cy="0"></circle>
+                <circle id="chart-punto" class="chart-punto-final" r="3.5" cx="0" cy="0"></circle>
+                <line id="chart-crosshair-line" class="chart-crosshair" x1="0" y1="0" x2="0" y2="120" style="display:none;"></line>
+            </svg>
+            <div class="chart-tooltip" id="chart-tooltip"></div>
+        </div>
+    </div>
+</div>
+
+<div class="seccion">
+    <h2>🔍 Filtros <span class="badge">busca por SPID histórico, host, IP, motivo o rango de fecha</span></h2>
+    <div class="filtros">
+        <div class="campo"><label>SPID</label><input type="text" id="f-spid" placeholder="ej. 154"></div>
+        <div class="campo"><label>Host / escritorio</label><input type="text" id="f-host" placeholder="ej. PROCESOS-MARIO"></div>
+        <div class="campo"><label>IP</label><input type="text" id="f-ip" placeholder="ej. 192.168.4."></div>
+        <div class="campo">
+            <label>Motivo</label>
+            <select id="f-motivo">
+                <option value="">Todos</option>
+                <option value="KICKSERVER_APACHE_10MIN">KICKSERVER (Apache ghost)</option>
+                <option value="BLOQUEADOR_ACTIVO_15S">Bloqueador activo</option>
+            </select>
+        </div>
+        <div class="campo"><label>Desde</label><input type="datetime-local" id="f-desde"></div>
+        <div class="campo"><label>Hasta</label><input type="datetime-local" id="f-hasta"></div>
+        <button onclick="aplicarFiltros()">Filtrar</button>
+        <button class="limpiar" onclick="limpiarFiltros()">Limpiar</button>
+    </div>
+    <div class="filtros-activos" id="filtros-activos"></div>
+</div>
+
+<div class="seccion">
+    <h2>🎯 Culpables recurrentes (SPID matado más de una vez) <span class="badge" id="badge-culpables">ranking histórico</span></h2>
+    <div class="scroll-y">
+    <table>
+        <thead><tr><th>SPID</th><th>Veces</th><th>Motivo dominante</th><th>Host</th><th>IP</th><th>Programa</th><th>1ra vez</th><th>Última vez</th><th>Prom.</th></tr></thead>
+        <tbody id="tabla-culpables"></tbody>
+    </table>
+    </div>
+    <div class="ranking-mini">
+        <div class="col"><h4>Top hosts responsables</h4><div id="ranking-hosts"></div></div>
+        <div class="col"><h4>Top IPs responsables</h4><div id="ranking-ips"></div></div>
+    </div>
+</div>
+
+<div class="seccion">
+    <h2>⚠️ Huecos de monitoreo (el watchdog no corrió)</h2>
+    <div id="huecos"></div>
+</div>
+
+<div class="seccion">
+    <h2>🕒 Línea de tiempo <span class="badge">últimos 300 eventos · origen de cada SPID matado</span></h2>
+    <div class="scroll-y">
+    <table>
+        <thead><tr><th>Fecha</th><th>Evento</th><th>Detalle</th><th>Origen (host / IP / programa)</th></tr></thead>
+        <tbody id="tabla-timeline"></tbody>
+    </table>
+    </div>
+</div>
+
+<footer>ARA_PROYECT — dashboard local, puerto 5005 · watchdog_dashboard_server.py</footer>
+
+<script>
+// Inyectada por el server (index() en watchdog_dashboard_server.py) — mismo
+// valor de WATCHDOG_API_KEY que ahora exige /api/* (antes no había auth).
+const WATCHDOG_API_KEY = {{ api_key | tojson }};
+function fetchApi(path) {
+    return fetch(path, { headers: { 'X-API-Key': WATCHDOG_API_KEY } });
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = String(s ?? ''); return d.innerHTML; }
+
+function pillMotivo(m) {
+    if (m === 'KICKSERVER_APACHE_10MIN') return `<span class="pill pill-kickserver">KICKSERVER (Apache ghost)</span>`;
+    if (m === 'BLOQUEADOR_ACTIVO_15S') return `<span class="pill pill-bloqueador">Bloqueador activo</span>`;
+    return `<span class="pill">${escHtml(m)}</span>`;
+}
+
+function leerFiltros() {
+    return {
+        spid: document.getElementById('f-spid').value.trim(),
+        host: document.getElementById('f-host').value.trim(),
+        ip: document.getElementById('f-ip').value.trim(),
+        motivo: document.getElementById('f-motivo').value,
+        desde: document.getElementById('f-desde').value ? document.getElementById('f-desde').value.replace('T', ' ') + ':00' : '',
+        hasta: document.getElementById('f-hasta').value ? document.getElementById('f-hasta').value.replace('T', ' ') + ':00' : '',
+    };
+}
+
+function aplicarFiltros() { cargarAnalisis(); }
+
+function limpiarFiltros() {
+    ['f-spid', 'f-host', 'f-ip', 'f-desde', 'f-hasta'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-motivo').value = '';
+    cargarAnalisis();
+}
+
+function filtrarPor(campo, valor) {
+    document.getElementById('f-' + campo).value = valor;
+    cargarAnalisis();
+}
+
+async function cargarAnalisis() {
+    try {
+        const params = new URLSearchParams(leerFiltros());
+        const res = await fetchApi('/api/analisis?' + params.toString());
+        const d = await res.json();
+
+        document.getElementById('ts-actualizado').textContent = d.generado;
+
+        const fa = d.filtros_aplicados || {};
+        const activos = Object.entries(fa);
+        document.getElementById('filtros-activos').textContent = activos.length
+            ? '🔎 Filtrando por: ' + activos.map(([k, v]) => `${k}="${v}"`).join(', ')
+            : '';
+
+        const r = d.resumen;
+        document.getElementById('resumen').innerHTML = `
+            <div class="card"><div class="num">${r.total_escaneos}</div><div class="lbl">Escaneos totales</div></div>
+            <div class="card kills"><div class="num">${r.total_kills}</div><div class="lbl">SPIDs matados</div></div>
+            <div class="card"><div class="num">${r.spids_unicos_matados}</div><div class="lbl">SPIDs únicos</div></div>
+            <div class="card errores"><div class="num">${r.total_errores_timeout}</div><div class="lbl">Timeouts del watchdog</div></div>
+            <div class="card huecos"><div class="num">${r.total_huecos}</div><div class="lbl">Huecos detectados</div></div>
+        `;
+
+        const culpables = d.culpables_recurrentes || [];
+        document.getElementById('tabla-culpables').innerHTML = culpables.length ? culpables.map((c, i) => `
+            <tr class="${c.veces >= 3 ? 'fila-culpable-top' : ''}">
+                <td class="mono clic" onclick="consultarSpidQuery(${c.spid})" title="Ver qué está consultando ahora (si el SPID sigue vivo)">${c.spid}</td>
+                <td><b>${c.veces}</b></td>
+                <td>${pillMotivo(c.motivo_dominante)}</td>
+                <td class="clic" onclick="filtrarPor('host','${escHtml(c.host)}')">${escHtml(c.host) || '—'}</td>
+                <td class="clic mono" onclick="filtrarPor('ip','${escHtml(c.ip)}')">${escHtml(c.ip) || '—'}</td>
+                <td>${escHtml(c.programa) || '—'}</td>
+                <td class="mono">${escHtml(c.primera_vez)}</td>
+                <td class="mono">${escHtml(c.ultima_vez)}</td>
+                <td>${c.segundos_prom}s</td>
+            </tr>
+        `).join('') : `<tr><td colspan="9" class="vacio">Sin resultados para estos filtros.</td></tr>`;
+
+        const motivos = d.motivos_totales || {};
+        const totalMotivos = Object.values(motivos).reduce((a,b) => a+b, 0);
+        let resumenMotivos = '';
+        if (totalMotivos > 0) {
+            resumenMotivos = Object.entries(motivos).map(([m,n]) =>
+                `${pillMotivo(m)} <span class="mono">${n}</span>`
+            ).join(' &nbsp; ');
+        }
+        document.getElementById('badge-culpables').outerHTML =
+            `<span class="badge" id="badge-culpables">ranking histórico${resumenMotivos ? ' — ' + resumenMotivos : ''}</span>`;
+
+        const rankHosts = d.ranking_hosts || [];
+        document.getElementById('ranking-hosts').innerHTML = rankHosts.length
+            ? rankHosts.map(([h, n]) => `<div class="fila clic" onclick="filtrarPor('host','${escHtml(h)}')"><span>${escHtml(h)}</span><b>${n}</b></div>`).join('')
+            : `<div class="vacio">Sin datos.</div>`;
+
+        const rankIps = d.ranking_ips || [];
+        document.getElementById('ranking-ips').innerHTML = rankIps.length
+            ? rankIps.map(([ip, n]) => `<div class="fila clic mono" onclick="filtrarPor('ip','${escHtml(ip)}')"><span>${escHtml(ip)}</span><b>${n}</b></div>`).join('')
+            : `<div class="vacio">Sin datos.</div>`;
+
+        const huecos = d.huecos || [];
+        document.getElementById('huecos').innerHTML = huecos.length ? huecos.map(h => `
+            <div class="vivo-item" style="border-left-color:var(--warn); background:rgba(245,158,11,0.08);">
+                Sin registros entre <b class="mono">${escHtml(h.desde)}</b> y <b class="mono">${escHtml(h.hasta)}</b>
+                — <b>${h.duracion_min} min</b> sin monitoreo.
+            </div>
+        `).join('') : `<div class="vacio">Sin huecos — el watchdog corrió sin interrupciones.</div>`;
+
+        const timeline = d.timeline || [];
+        document.getElementById('tabla-timeline').innerHTML = timeline.length ? timeline.map(e => {
+            const pill = e.tipo === 'ok' ? '<span class="pill pill-ok">OK</span>'
+                       : e.tipo === 'kill' ? '<span class="pill pill-kill">KILL</span>'
+                       : '<span class="pill pill-err">ERROR</span>';
+            const origenes = (e.origenes || []).map(o => {
+                if (!o.host && !o.ip && !o.programa) {
+                    return `<div><span class="mono">SPID ${o.spid}</span> — <span style="color:var(--muted);">origen no registrado (kill anterior a este cambio)</span></div>`;
+                }
+                return `<div><span class="mono">SPID ${o.spid}</span> — <b>${escHtml(o.host) || '—'}</b> · <span class="mono">${escHtml(o.ip) || '—'}</span> · ${escHtml(o.programa) || '—'} ${o.motivo ? pillMotivo(o.motivo) : ''}</div>`;
+            }).join('');
+            return `<tr><td class="mono">${escHtml(e.fecha)}</td><td>${pill}</td><td>${escHtml(e.detalle)}</td><td>${origenes || '—'}</td></tr>`;
+        }).join('') : `<tr><td colspan="4" class="vacio">Sin eventos.</td></tr>`;
+    } catch (e) {
+        console.warn('Error cargando análisis:', e);
+    }
+}
+
+async function cargarVivo() {
+    const badge = document.getElementById('badge-vivo');
+    const cont = document.getElementById('vivo');
+    try {
+        const res = await fetchApi('/api/vivo');
+        const d = await res.json();
+
+        if (!d.disponible) {
+            registrarMuestraChart(null); // servidor no responde: hueco visible en el gráfico, no un 0 falso
+            badge.textContent = 'servidor no disponible';
+            cont.innerHTML = `<div class="vivo-off">No se pudo consultar el servidor SQL ahora mismo (${escHtml(d.motivo || 'sin detalle')}). Se reintenta cada 5s.</div>`;
+            return;
+        }
+
+        const filas = d.bloqueos_activos || [];
+        registrarMuestraChart(filas.length);
+
+        if (filas.length === 0) {
+            badge.textContent = 'sin bloqueos activos';
+            cont.innerHTML = `<div class="vivo-off">✅ Nadie está bloqueando a nadie en este momento (consultado ${escHtml(d.consultado)}).</div>`;
+            return;
+        }
+        badge.textContent = `${filas.length} bloqueador(es) activo(s) — consultado ${d.consultado}`;
+        cont.innerHTML = filas.map(f => `
+            <div class="vivo-item">
+                <b class="mono clic" onclick="consultarSpidQuery(${f.spid_bloqueador})" title="Ver qué está consultando">SPID ${f.spid_bloqueador}</b> está bloqueando a <b class="mono clic" onclick="consultarSpidQuery(${f.spid_bloqueado})" title="Ver qué está consultando">SPID ${f.spid_bloqueado}</b>
+                (${(f.espera_ms/1000).toFixed(1)}s de espera) —
+                login <b>${escHtml(f.login_name)}</b>, host <b>${escHtml(f.host_name)}</b>,
+                IP <b class="mono">${escHtml(f.client_net_address)}</b>, programa <b>${escHtml(f.program_name)}</b>, BD <b>${escHtml(f.db)}</b>
+            </div>
+        `).join('');
+    } catch (e) {
+        registrarMuestraChart(null);
+        badge.textContent = 'error de conexión';
+        cont.innerHTML = `<div class="vivo-off">Error consultando /api/vivo.</div>`;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ¿QUÉ ESTÁ CONSULTANDO ESTE SPID? — texto real de la query, solo lectura.
+// ═══════════════════════════════════════════════════════════════════════
+async function consultarSpidQuery(spidForzado) {
+    const input = document.getElementById('spid-input');
+    const spid = spidForzado || (input.value || '').trim();
+    const cont = document.getElementById('spid-resultado');
+    if (!spid || !/^\d+$/.test(String(spid))) {
+        cont.innerHTML = `<div class="vivo-off">Escribe un número de SPID válido.</div>`;
+        return;
+    }
+    if (spidForzado) input.value = spidForzado;
+    cont.innerHTML = `<div class="vivo-off">Consultando SPID ${escHtml(spid)}…</div>`;
+    try {
+        const res = await fetchApi(`/api/spid/${spid}/query`);
+        const d = await res.json();
+
+        const historico = d.historico || [];
+        const historicoHtml = renderHistoricoSpid(historico, spid);
+
+        if (!d.disponible) {
+            cont.innerHTML = `<div class="vivo-off">No se pudo consultar el servidor SQL en vivo (${escHtml(d.motivo || 'sin detalle')}).</div>` + historicoHtml;
+            return;
+        }
+        if (!d.existe) {
+            cont.innerHTML = `<div class="vivo-off">${escHtml(d.motivo)} — SQL Server ya reciclo ese número para otra sesión (o nunca la tuvo).</div>` + historicoHtml;
+            return;
+        }
+
+        const s = d.sesion;
+        const infoGrid = `
+            <div class="spid-info-grid">
+                <div class="campo-info"><div class="k">Login</div><div class="v">${escHtml(s.login_name)}</div></div>
+                <div class="campo-info"><div class="k">Host</div><div class="v">${escHtml(s.host_name) || '—'}</div></div>
+                <div class="campo-info"><div class="k">IP</div><div class="v mono">${escHtml(s.client_net_address) || '—'}</div></div>
+                <div class="campo-info"><div class="k">Programa</div><div class="v">${escHtml(s.program_name) || '—'}</div></div>
+                <div class="campo-info"><div class="k">Base de datos</div><div class="v">${escHtml(s.db_actual) || '—'}</div></div>
+                <div class="campo-info"><div class="k">Estado</div><div class="v">${escHtml(s.status)}</div></div>
+            </div>`;
+
+        let bloqueSql = '';
+        if (d.request_activo && d.request_activo.sql_text) {
+            const r = d.request_activo;
+            const bloq = r.blocking_session_id && r.blocking_session_id != 0
+                ? ` — <span style="color:var(--danger);">bloqueado por SPID ${r.blocking_session_id}</span>`
+                : '';
+            bloqueSql = `
+                <div class="sql-box-label">Corriendo AHORA MISMO (${(r.segundos_corriendo||0).toFixed(1)}s)${bloq}:</div>
+                <div class="sql-box">${escHtml(r.sql_text)}</div>`;
+        } else {
+            bloqueSql = `<div class="sql-box-label">Sesión dormida (sleeping) — no hay request corriendo ahora.</div>`;
+        }
+
+        let ultimaSql = '';
+        if (d.ultima_query) {
+            ultimaSql = `
+                <div class="sql-box-label">Última consulta ejecutada por este SPID:</div>
+                <div class="sql-box">${escHtml(d.ultima_query)}</div>`;
+        }
+
+        cont.innerHTML = infoGrid + bloqueSql + ultimaSql +
+            `<div style="font-size:11px; color:var(--muted); margin-top:8px;">Consultado ${escHtml(d.consultado)}</div>` +
+            historicoHtml;
+    } catch (e) {
+        cont.innerHTML = `<div class="vivo-off">Error consultando /api/spid/${escHtml(spid)}/query.</div>`;
+    }
+}
+
+// Evidencia archivada (evidencia_bloqueos_sql/*.jsonl): todas las veces que
+// ese número de SPID quedó registrado al ser matado, con fecha exacta — así
+// no depende de que el SPID siga vivo (se recicla) para ver qué pasó.
+function renderHistoricoSpid(historico, spid) {
+    if (!historico.length) {
+        return `<div class="sql-box-label" style="margin-top:16px;">Sin evidencia archivada para SPID ${escHtml(spid)} (o el bloqueo fue anterior a activar la captura de evidencia).</div>`;
+    }
+    const items = historico.map(h => `
+        <div class="vivo-item" style="border-left-color:var(--accent); background:rgba(56,189,248,0.06);">
+            <div><span class="mono">${escHtml(h.fecha)}</span> — <b>${escHtml(h.host) || '—'}</b> · <span class="mono">${escHtml(h.ip) || '—'}</span> · ${escHtml(h.programa) || '—'} · ${escHtml(h.dormido_sec)}s bloqueando</div>
+            <div class="sql-box" style="margin-top:6px;">${escHtml(h.sql_text || h.input_buffer || '(sin texto capturado)')}</div>
+        </div>
+    `).join('');
+    return `<div class="sql-box-label" style="margin-top:16px;">📦 Evidencia archivada — ${historico.length} vez(es) que este SPID quedó registrado al matarlo:</div>${items}`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('spid-input');
+    if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') consultarSpidQuery(); });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// MINI-GRÁFICO DE PULSO (estilo ticker): línea que crece a la derecha con
+// cada muestreo de /api/vivo (cada 5s). Buffer en memoria del navegador,
+// máx 60 puntos (5 minutos de historial visible) — no se persiste, se
+// reinicia si se recarga la página, y eso es intencional (es un pulso en
+// vivo, no un histórico — el histórico ya lo cubre la línea de tiempo de abajo).
+// ═══════════════════════════════════════════════════════════════════════
+const CHART_MAX_PUNTOS = 60;
+let chartMuestras = []; // [{t: Date, valor: int|null}]
+
+function registrarMuestraChart(valor) {
+    chartMuestras.push({ t: new Date(), valor });
+    if (chartMuestras.length > CHART_MAX_PUNTOS) chartMuestras.shift();
+    dibujarChart();
+}
+
+function dibujarChart() {
+    const W = 600, H = 120, PAD_Y = 12;
+    const svg = document.getElementById('chart-vivo');
+    if (!svg || chartMuestras.length === 0) return;
+
+    const valores = chartMuestras.map(m => m.valor).filter(v => v !== null);
+    const maxValor = Math.max(3, ...valores, 0); // headroom mínimo aunque todo sea 0
+    const n = chartMuestras.length;
+    const pasoX = n > 1 ? W / (n - 1) : W;
+
+    const puntos = chartMuestras.map((m, i) => {
+        const x = i * pasoX;
+        const y = m.valor === null ? null : H - PAD_Y - (m.valor / maxValor) * (H - PAD_Y * 2);
+        return { x, y, m };
+    });
+
+    // Solo conecta tramos con datos reales — un hueco (servidor caído) se ve
+    // como un corte en la línea, no como una caída falsa a cero.
+    let dLinea = '', dArea = '', trazando = false;
+    puntos.forEach(p => {
+        if (p.y === null) { trazando = false; return; }
+        if (!trazando) {
+            dLinea += `M ${p.x.toFixed(1)} ${p.y.toFixed(1)} `;
+            dArea += `M ${p.x.toFixed(1)} ${H} L ${p.x.toFixed(1)} ${p.y.toFixed(1)} `;
+            trazando = true;
+        } else {
+            dLinea += `L ${p.x.toFixed(1)} ${p.y.toFixed(1)} `;
+            dArea += `L ${p.x.toFixed(1)} ${p.y.toFixed(1)} `;
+        }
+    });
+    const ultimo = [...puntos].reverse().find(p => p.y !== null);
+    if (ultimo) dArea += `L ${ultimo.x.toFixed(1)} ${H} Z`;
+
+    document.getElementById('chart-linea-path').setAttribute('d', dLinea);
+    document.getElementById('chart-area-path').setAttribute('d', dArea);
+
+    if (ultimo) {
+        document.getElementById('chart-punto').setAttribute('cx', ultimo.x);
+        document.getElementById('chart-punto').setAttribute('cy', ultimo.y);
+        document.getElementById('chart-punto-halo').setAttribute('cx', ultimo.x);
+        document.getElementById('chart-punto-halo').setAttribute('cy', ultimo.y);
+        document.getElementById('chart-valor').textContent = ultimo.m.valor;
+        document.getElementById('chart-valor').style.color = ultimo.m.valor > 0 ? 'var(--danger)' : 'var(--ok)';
+    }
+
+    svg._puntos = puntos; // para el hover
+}
+
+// Crosshair + tooltip al pasar el mouse (hover layer por defecto sobre línea).
+(function initHoverChart() {
+    const svg = document.getElementById('chart-vivo');
+    const tooltip = document.getElementById('chart-tooltip');
+    const crosshair = document.getElementById('chart-crosshair-line');
+    if (!svg) return;
+
+    svg.addEventListener('mousemove', (ev) => {
+        const puntos = svg._puntos;
+        if (!puntos || puntos.length === 0) return;
+        const rect = svg.getBoundingClientRect();
+        const xRel = ((ev.clientX - rect.left) / rect.width) * 600;
+        let cercano = puntos[0];
+        for (const p of puntos) {
+            if (Math.abs(p.x - xRel) < Math.abs(cercano.x - xRel)) cercano = p;
+        }
+        crosshair.style.display = 'block';
+        crosshair.setAttribute('x1', cercano.x); crosshair.setAttribute('x2', cercano.x);
+
+        tooltip.style.display = 'block';
+        tooltip.style.left = ((cercano.x / 600) * rect.width) + 'px';
+        tooltip.style.top = (cercano.y === null ? 60 : cercano.y) + 'px';
+        const hora = cercano.m.t.toLocaleTimeString('es-VE', { hour12: false });
+        tooltip.textContent = cercano.m.valor === null
+            ? `${hora} — sin datos`
+            : `${hora} — ${cercano.m.valor} bloqueador(es)`;
+    });
+    svg.addEventListener('mouseleave', () => {
+        crosshair.style.display = 'none';
+        tooltip.style.display = 'none';
+    });
+})();
+
+function actualizarTodo() { cargarAnalisis(); cargarVivo(); }
+actualizarTodo();
+setInterval(actualizarTodo, 5000);
+</script>
+</body>
+</html>
