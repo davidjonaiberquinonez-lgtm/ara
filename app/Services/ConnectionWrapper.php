@@ -702,10 +702,21 @@ final class ConnectionWrapper
         $pass = $this->env('PROFIT_SQL_PASS', $this->env('PROFIT_DB_PASS', 'profit'));
         $name = $this->env('PROFIT_SQL_NAME', $this->env('PROFIT_DB_NAME', 'PRUEB25'));
 
+        // BUG REAL detectado en vivo (14/09, máquina .23 conectando por
+        // sqlsrv real por primera vez — antes solo se había probado en
+        // localhost): 2 fallos del driver PDO sqlsrv que no aparecen contra
+        // localhost porque ahí Encrypt/certificado nunca entra en juego.
+        //  1) El certificado de SQL Server es autofirmado y sqlsrv exige
+        //     validarlo por defecto -> falla la conexión. Hace falta
+        //     TrustServerCertificate=1 en el DSN.
+        //  2) PDO::ATTR_TIMEOUT NO es un atributo soportado por el driver
+        //     sqlsrv (tira SQLSTATE[IMSSP]: unsupported attribute) -> el
+        //     timeout de login va en el DSN como LoginTimeout=, no en $opts.
+        // El branch ODBC (PDO::ATTR_TIMEOUT sí soportado ahí) queda igual.
         $drivers = PDO::getAvailableDrivers();
         if (in_array('sqlsrv', $drivers, true)) {
             $dsn = 'sqlsrv:Server=' . $host . ',' . $port . ';Database=' . $name
-                 . ';ConnectionPooling=0';
+                 . ';ConnectionPooling=0;TrustServerCertificate=1;LoginTimeout=' . $this->timeoutS;
         } else {
             $driverOdbc = $this->env('PROFIT_SQL_DRIVER', $this->env('PROFIT_DB_DRIVER', 'SQL Server'));
             $dsn = 'odbc:Driver={' . $driverOdbc . '};Server=' . $host . ',' . $port
@@ -715,9 +726,11 @@ final class ConnectionWrapper
         $opts = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_TIMEOUT            => $this->timeoutS,
             PDO::ATTR_PERSISTENT         => false,
         ];
+        if (!in_array('sqlsrv', $drivers, true)) {
+            $opts[PDO::ATTR_TIMEOUT] = $this->timeoutS;
+        }
         // Query timeout vía driver sqlsrv (segundos) si está disponible.
         if (defined('PDO::SQLSRV_ATTR_QUERY_TIMEOUT')) {
             $opts[PDO::SQLSRV_ATTR_QUERY_TIMEOUT] = $this->queryTimeout;
