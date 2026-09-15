@@ -6,7 +6,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from flask import Flask, render_template, jsonify, request, send_from_directory, send_file, make_response, redirect
+from flask import Flask, render_template, jsonify, request, send_from_directory, send_file, make_response, redirect, g
 from flask_cors import CORS
 import pandas as pd
 import requests
@@ -30,6 +30,7 @@ import time
 # dependa de un try/except local que dejaría `normalizar_sede` sin vincular.
 from rutas.application.user_service import asegurar_columna_sede, normalizar_sede
 from auth_sesion import emitir_token_sesion, verificar_token_sesion
+import push_notif
 
 try:
     from reportlab.lib.pagesizes import letter, A4
@@ -102,7 +103,7 @@ from chat_routes import register_chat_routes, init_chat_tables
 init_chat_tables()              # crea tablas contactos/conversaciones/mensajes si faltan
 register_chat_routes(app)
 
-from atencion_cliente_routes import register_atencion_routes, init_atencion_tables
+from atencion_cliente_routes import register_atencion_routes, init_atencion_tables, _numero_de_agente
 init_atencion_tables()          # crea tablas meta_numeros/atencion_conversaciones/mensajes si faltan
 register_atencion_routes(app)
 
@@ -277,10 +278,115 @@ except Exception as e:
     tb.print_exc()
     print(f"⚠️ VISOR HÍBRIDO no disponible: {e}", flush=True)
 
+# -----------------------------------------------------------------------------
+# API pública de solo lectura (07/09) — para servicios EXTERNOS a
+# ARA_PROYECT (hoy: Servidor de Retenciones/Pedidos OCR, que antes abría
+# proyecto_ara.db directo por ruta de archivo local — se rompía apenas ese
+# servicio se movía a otra máquina/contenedor). Protegida con X-API-Key
+# (env ARA_API_PUBLICA_KEY) — ver api_publico_routes.py.
+# -----------------------------------------------------------------------------
+try:
+    from api_publico_routes import register_api_publico_routes
+    register_api_publico_routes(app)
+    print("🌐 API PÚBLICA registrada: GET /api/publico/productos/buscar", flush=True)
+except Exception as e:
+    import traceback as tb
+    tb.print_exc()
+    print(f"⚠️ API PÚBLICA no disponible: {e}", flush=True)
+
+# -----------------------------------------------------------------------------
+# PWA (28/08): Service Worker en scope raíz, manifest, y notificaciones push.
+# -----------------------------------------------------------------------------
+@app.route('/sw.js')
+def service_worker():
+    # Servido desde la RAÍZ (no /static/sw.js) para que su scope por
+    # defecto sea '/' entero — un Service Worker solo puede controlar
+    # rutas dentro de (o debajo de) la carpeta desde la que se sirve.
+    resp = send_from_directory(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static'),
+        'sw.js',
+        mimetype='application/javascript',
+    )
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@app.route('/api/push/vapid_public_key', methods=['GET'])
+def push_vapid_public_key():
+    return jsonify({"publicKey": push_notif.obtener_llave_publica_b64url()})
+
+
+@app.route('/api/badge/mensajes_sin_leer', methods=['GET'])
+def badge_mensajes_sin_leer():
+    # Corregido (28/08, reporte real del usuario): el badge mostraba
+    # "notas de hoy sin completar" GLOBAL (mismo número para todo el
+    # almacén) etiquetado como "notificaciones" en el ícono — un usuario
+    # vio "70" y asumió que eran 70 mensajes sin leer, cuando el chat no
+    # tenía ninguno. Ahora el badge es de verdad "mensajes sin leer, de
+    # ESTE usuario": suma (a) sus conversaciones internas usuario-a-usuario
+    # (Bandeja — las de contacto/bot NO cuentan, son compartidas por todos,
+    # no son "suyas") y (b) las conversaciones de Atención al Cliente del
+    # número de WhatsApp que tenga asignado, si tiene uno.
+    sesion = verificar_token_sesion(request)
+    if sesion is None:
+        return jsonify({"status": "error", "no_leidos": 0}), 200
+    usuario_id = sesion['id']
+    try:
+        conn = get_db_connection()
+        try:
+            fila_interno = conn.execute(
+                "SELECT COALESCE(SUM(unread_count), 0) FROM conversaciones "
+                "WHERE usuario_a_id = ? OR usuario_b_id = ?",
+                (usuario_id, usuario_id)
+            ).fetchone()
+            no_leidos = fila_interno[0] or 0
+
+            numero = _numero_de_agente(usuario_id, conn)
+            if numero:
+                fila_atencion = conn.execute(
+                    "SELECT COALESCE(SUM(unread_count), 0) FROM atencion_conversaciones "
+                    "WHERE phone_number_id = ?",
+                    (numero['phone_number_id'],)
+                ).fetchone()
+                no_leidos += fila_atencion[0] or 0
+        finally:
+            conn.close()
+        return jsonify({"status": "success", "no_leidos": no_leidos})
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": str(e), "no_leidos": 0}), 200
+
+
+@app.route('/api/push/subscribe', methods=['POST'])
+def push_subscribe():
+    sesion = verificar_token_sesion(request)
+    if sesion is None:
+        return jsonify({"status": "error", "mensaje": "Sesión inválida o expirada. Iniciá sesión de nuevo."}), 401
+    datos = request.get_json(silent=True) or {}
+    suscripcion = datos.get('subscription')
+    if not isinstance(suscripcion, dict) or not suscripcion.get('endpoint'):
+        return jsonify({"status": "error", "mensaje": "Falta 'subscription' válida del navegador."}), 400
+    try:
+        push_notif.guardar_suscripcion(sesion['id'], suscripcion)
+    except Exception as e:
+        return jsonify({"status": "error", "mensaje": str(e)}), 500
+    return jsonify({"status": "success"})
+
+
+@app.before_request
+def _iniciar_medicion_trafico():
+    g._t_inicio_request = time.perf_counter()
+
+
 @app.after_request
 def monitorear_trafico(response):
+    # Corregido (31/08): antes no se guardaba el código de estado ni la
+    # latencia — no había forma de medir tasa de error real ni detectar
+    # peticiones lentas sin grepear prints sueltos de cada endpoint.
+    t_inicio = getattr(g, '_t_inicio_request', None)
+    duracion_ms = round((time.perf_counter() - t_inicio) * 1000, 1) if t_inicio is not None else '?'
     print(
-        f"👉 [{request.method}] {request.path} — IP: {request.remote_addr}",
+        f"👉 [{request.method}] {request.path} — IP: {request.remote_addr} — "
+        f"{response.status_code} ({duracion_ms} ms)",
         flush=True,
     )
     return response
@@ -2819,7 +2925,13 @@ def index():
     # resolución de cámara, nuevo prompt de escaneo) no se reflejaba en el
     # teléfono hasta forzar recarga. index.html cambia seguido en este
     # proyecto, así que nunca debe cachearse.
-    resp = make_response(render_template('index.html'))
+    # ara_visor_api_key: /api/visor/* ahora exige X-API-Key (antes abierta,
+    # ver visor_articulos/application/visor_routes.py). El frontend interno
+    # la necesita para seguir escaneando desde esta misma página.
+    resp = make_response(render_template(
+        'index.html',
+        ara_visor_api_key=os.environ.get('ARA_API_PUBLICA_KEY', ''),
+    ))
     resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     resp.headers['Pragma'] = 'no-cache'
     resp.headers['Expires'] = '0'
@@ -2856,7 +2968,13 @@ def vision_search():
         return jsonify({"tipo": "error", "mensaje": str(e)}), 500
 
 # Ejecutor global de hilos para descargar llamadas IA bloqueantes de los hilos de Waitress
-executor_vision = ThreadPoolExecutor(max_workers=10)
+# Subido de 10 a 20 (31/08): dimensionado en su momento para NVIDIA NIM
+# (~4s por foto); DeepSeek Vision (motor principal desde el 28/08) mide en
+# vivo 12-227s por foto — con 10 workers, escanear desde ~10 celulares en la
+# misma ventana de 1-2 min ya saturaba el pool y el #11 quedaba esperando en
+# silencio. 20 dentro de los 32 hilos totales de Waitress (deja margen para
+# el resto de endpoints: chat, notas, rutas), no el tope teórico completo.
+executor_vision = ThreadPoolExecutor(max_workers=20)
 
 # Marca de tiempo de arranque para el endpoint de health
 _SERVER_START_TIME = time.time()
@@ -2931,9 +3049,20 @@ def _verificar_puerto_tcp(host: str, port, timeout: float = 1.5) -> bool:
 
 def _estado_gb10() -> dict:
     """Estado opcional de las piezas GB10 (Capa 2 — espejos locales — y el
-    motor de inferencia). La GB10 física todavía no está en sitio, así que
-    cada sub-chequeo reporta 'no_configurado' en vez de fallar cuando su env
-    var correspondiente no está seteada (caso normal hoy, en este entorno)."""
+    motor de inferencia). La GDX Spark física todavía no está en sitio, así
+    que cada sub-chequeo reporta 'no_configurado' en vez de fallar cuando su
+    env var correspondiente no está seteada (caso normal hoy, en este
+    entorno).
+
+    GDX SPARK GB10 (repo separado, 31/08, ver C:\\PROYECTOS\\GDX SPARK GB10)
+    dejó de vivir como subcarpeta de este repo — este chequeo YA NO importa
+    `gb10.inference.engine_config.MODEL_ROUTES` entre repos (esa dependencia
+    cruzada por Python se quitó al separar los proyectos); ahora solo mira
+    las mismas *_INFERENCE_URL por env que ya usaba para decidir si algo
+    está configurado, sin acoplarse a la estructura interna del otro repo.
+    Si en el futuro hace falta el detalle fino (nombre de modelo, etc.),
+    debe pedirse vía HTTP a la interfaz de control de ese repo, no vía
+    import."""
     resultado = {}
 
     host_sql = os.environ.get("PROFIT_SQL_HOST_LOCAL")
@@ -2952,22 +3081,17 @@ def _estado_gb10() -> dict:
 
     try:
         from urllib.parse import urlparse
-        from gb10.inference.engine_config import MODEL_ROUTES
 
-        motores_configurados = any(
-            os.environ.get(f"{tarea}_INFERENCE_URL") for tarea in MODEL_ROUTES
-        )
+        tareas = ("VISION", "REASONING", "AUDIO")
         resultado["inferencia"] = {}
-        for tarea, ruta in MODEL_ROUTES.items():
-            if not motores_configurados:
-                resultado["inferencia"][tarea] = "no_configurado (GB10 no desplegada)"
+        for tarea in tareas:
+            url = os.environ.get(f"{tarea}_INFERENCE_URL")
+            if not url:
+                resultado["inferencia"][tarea] = "no_configurado (GDX no desplegada)"
                 continue
-            parsed = urlparse(ruta["endpoint"])
+            parsed = urlparse(url)
             alcanzable = _verificar_puerto_tcp(parsed.hostname, parsed.port or 80)
-            resultado["inferencia"][tarea] = (
-                f"ok ({ruta['model_name']} @ {ruta['endpoint']})" if alcanzable
-                else f"inaccesible ({ruta['endpoint']})"
-            )
+            resultado["inferencia"][tarea] = f"ok ({url})" if alcanzable else f"inaccesible ({url})"
     except Exception as e:
         resultado["inferencia"] = f"error al resolver rutas de inferencia: {e}"
 

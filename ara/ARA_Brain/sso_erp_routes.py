@@ -29,11 +29,44 @@ import uuid
 import jwt
 from flask import jsonify, redirect, request
 
+from auth_sesion import emitir_token_sesion
+from rutas.application.user_service import normalizar_sede
+
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("ARA_DB_PATH", os.path.join(_BASE_DIR, "data", "proyecto_ara.db"))
 
 ISSUER_ESPERADO = "cristmedicals-erp"
 CODIGO_TTL_SEGUNDOS = 30  # ventana para que el navegador consuma el código de canje
+
+# ── Mapeo rol CRM (pharma_erp.roles, verificado en vivo 192.168.4.23) →
+# rol de ARA Warehouse (admin/supervisor/operario). Comparación
+# case-insensitive porque el CRM tiene inconsistencias de mayúsculas
+# reales en la tabla ("SUPERVICiON"). Confirmado con el usuario: solo
+# 'Administrador' (is_system=1, "Acceso total al sistema") es admin; los
+# roles de aprobación/reportería (SUPERVICiON, GERENCIA) son supervisor;
+# el resto de roles departamentales (VENTAS, COMPRAS, TECNOLOGIA, etc.)
+# son operario — acceso base, sin reportes sensibles.
+_ROLES_CRM_ADMIN = {"administrador"}
+_ROLES_CRM_SUPERVISOR = {"supervicion", "gerencia"}
+
+
+def _mapear_rol_warehouse(roles_crm: list) -> str:
+    roles_lower = {str(r).strip().lower() for r in (roles_crm or [])}
+    if roles_lower & _ROLES_CRM_ADMIN:
+        return "admin"
+    if roles_lower & _ROLES_CRM_SUPERVISOR:
+        return "supervisor"
+    return "operario"
+
+
+def _verificar_jwt_erp(token: str) -> dict:
+    """Decodifica y verifica el JWT del ERP (firma/exp/iss). Lanza
+    jwt.InvalidTokenError (incluye ExpiredSignatureError) si no es válido,
+    o RuntimeError si ERP_SSO_SECRET no está configurada."""
+    secret = os.environ.get("ERP_SSO_SECRET", "").strip()
+    if not secret:
+        raise RuntimeError("ERP_SSO_SECRET no configurada")
+    return jwt.decode(token, key=secret, algorithms=["HS256"], issuer=ISSUER_ESPERADO)
 
 
 def _conectar() -> sqlite3.Connection:
@@ -71,6 +104,14 @@ def _migrar() -> None:
             );
             """
         )
+        # 'destino' distingue el código de canje de ARA Intelligent
+        # (payload con roles/permissions/metadata crudos del CRM) del de
+        # ARA Warehouse (payload ya mapeado a rol/sede + token propio) —
+        # evita que un consumidor lea el payload con la forma equivocada.
+        try:
+            conn.execute("ALTER TABLE sso_codigos_temp ADD COLUMN destino TEXT DEFAULT 'inteligente'")
+        except sqlite3.OperationalError:
+            pass  # columna ya existe (migración ya aplicada)
         conn.commit()
     finally:
         conn.close()
@@ -83,6 +124,19 @@ def _limpiar_codigos_vencidos(conn: sqlite3.Connection) -> None:
 
 def register_sso_routes(app):
     _migrar()
+
+    @app.after_request
+    def _sso_sin_cache(response):
+        # Hallazgo real (26/08): el navegador sirvió un 304 en
+        # /api/central-auth/session-check (endpoint del PORTAL, no de acá)
+        # reusando un JWT ya vencido (60s de vida) en vez de pedir uno
+        # fresco — el candado se pone del lado de ARA, en los endpoints
+        # propios de intercambio SSO, para que estos NUNCA se sirvan de
+        # caché (no hay forma de tocar el header del portal desde acá).
+        if request.path.startswith("/api/sso/") or request.path.startswith("/auth/sso"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+        return response
 
     # BUG real reportado en vivo (24/08): Auth Central del ERP tiene el
     # callback de ARA registrado apuntando a /sso (sin el prefijo /auth/),
@@ -120,18 +174,11 @@ def register_sso_routes(app):
         if not token:
             return redirect("/ara-inteligente?sso_error=" + "sin_token")
 
-        secret = os.environ.get("ERP_SSO_SECRET", "").strip()
-        if not secret:
+        try:
+            payload = _verificar_jwt_erp(token)
+        except RuntimeError:
             print("[SSO] ERP_SSO_SECRET no configurada — no se puede verificar el token del ERP.")
             return redirect("/ara-inteligente?sso_error=" + "sso_no_configurado")
-
-        try:
-            payload = jwt.decode(
-                token,
-                key=secret,
-                algorithms=["HS256"],
-                issuer=ISSUER_ESPERADO,
-            )
         except jwt.ExpiredSignatureError:
             return redirect("/ara-inteligente?sso_error=" + "expirado")
         except jwt.InvalidTokenError as e:
@@ -208,7 +255,7 @@ def register_sso_routes(app):
             }
             _limpiar_codigos_vencidos(conn)
             conn.execute(
-                "INSERT INTO sso_codigos_temp (codigo, payload_json, creado_en) VALUES (?, ?, ?)",
+                "INSERT INTO sso_codigos_temp (codigo, payload_json, creado_en, destino) VALUES (?, ?, ?, 'inteligente')",
                 (codigo, json.dumps(usuario_sesion, ensure_ascii=False), time.time()),
             )
             conn.commit()
@@ -216,6 +263,73 @@ def register_sso_routes(app):
             conn.close()
 
         return redirect(f"/ara-inteligente?sso={codigo}")
+
+    @app.route("/auth/sso/warehouse", methods=["GET"])
+    def sso_callback_warehouse():
+        """Mismo JWT del ERP (CristMedicals), pero para ARA Warehouse: mapea
+        rol CRM → rol Warehouse (admin/supervisor/operario, ver
+        _mapear_rol_warehouse) y emite un token de sesión propio de
+        Warehouse (auth_sesion.py) para que los endpoints existentes
+        (/api/reportes/*, etc.) lo verifiquen exactamente igual que si el
+        usuario hubiera entrado por /api/login. El login propio de
+        Warehouse sigue activo como respaldo (a pedido del usuario) — esta
+        ruta es un camino alterno, no reemplaza /api/login."""
+        token = request.args.get("token", "")
+        if not token:
+            return redirect("/?sso_error=sin_token")
+
+        try:
+            payload = _verificar_jwt_erp(token)
+        except RuntimeError:
+            print("[SSO] ERP_SSO_SECRET no configurada — no se puede verificar el token del ERP.")
+            return redirect("/?sso_error=sso_no_configurado")
+        except jwt.ExpiredSignatureError:
+            return redirect("/?sso_error=expirado")
+        except jwt.InvalidTokenError as e:
+            print(f"[SSO] Token inválido (warehouse): {e}")
+            return redirect("/?sso_error=invalido")
+
+        employee_id = str(payload.get("employee_id") or "").strip()
+        if not employee_id:
+            return redirect("/?sso_error=sin_employee_id")
+
+        nombre = str(payload.get("full_name") or employee_id)
+        roles = payload.get("roles") or []
+        metadata = payload.get("metadata") or {}
+
+        rol_warehouse = _mapear_rol_warehouse(roles)
+        sede = normalizar_sede((metadata or {}).get("sede")) or "BQTO"
+        uid = f"sso_{employee_id}"
+
+        try:
+            token_warehouse = emitir_token_sesion(uid=uid, nombre=nombre, rol=rol_warehouse, permisos=[])
+        except RuntimeError:
+            print("[SSO] ARA_SESSION_SECRET no configurada — no se puede emitir token de Warehouse.")
+            return redirect("/?sso_error=sesion_no_configurada")
+
+        conn = _conectar()
+        try:
+            codigo = uuid.uuid4().hex
+            usuario_sesion = {
+                "id": uid,
+                "nombre": nombre,
+                "rol": rol_warehouse,
+                "permisos": [],
+                "color": "#3b82f6",
+                "sede": sede,
+                "isRouteResponsible": False,
+                "token": token_warehouse,
+            }
+            _limpiar_codigos_vencidos(conn)
+            conn.execute(
+                "INSERT INTO sso_codigos_temp (codigo, payload_json, creado_en, destino) VALUES (?, ?, ?, 'warehouse')",
+                (codigo, json.dumps(usuario_sesion, ensure_ascii=False), time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return redirect(f"/?sso={codigo}")
 
     @app.route("/api/sso/consumir", methods=["GET"])
     def sso_consumir():
@@ -226,7 +340,7 @@ def register_sso_routes(app):
         conn = _conectar()
         try:
             fila = conn.execute(
-                "SELECT payload_json, creado_en FROM sso_codigos_temp WHERE codigo = ?", (codigo,)
+                "SELECT payload_json, creado_en FROM sso_codigos_temp WHERE codigo = ? AND destino = 'inteligente'", (codigo,)
             ).fetchone()
             if fila is not None:
                 # Un solo uso: se borra apenas se lee, exista o no haya vencido.
@@ -246,6 +360,45 @@ def register_sso_routes(app):
             return jsonify({"status": "error", "mensaje": "Perfil de sesión corrupto."}), 500
 
         return jsonify({"status": "success", "usuario": usuario})
+
+    @app.route("/api/sso/consumir_warehouse", methods=["GET"])
+    def sso_consumir_warehouse():
+        """Misma mecánica de código de un solo uso que /api/sso/consumir,
+        pero devuelve la forma exacta que ya espera el frontend de ARA
+        Warehouse tras /api/login: {status, token, user:{id,nombre,rol,
+        permisos,color,sede,isRouteResponsible}} — así el JS existente
+        (guardarSesionUsuario) no necesita saber si vino de login propio o
+        de SSO."""
+        codigo = request.args.get("codigo", "").strip()
+        if not codigo:
+            return jsonify({"status": "error", "mensaje": "Falta el código."}), 400
+
+        conn = _conectar()
+        try:
+            fila = conn.execute(
+                "SELECT payload_json, creado_en FROM sso_codigos_temp WHERE codigo = ? AND destino = 'warehouse'", (codigo,)
+            ).fetchone()
+            if fila is not None:
+                conn.execute("DELETE FROM sso_codigos_temp WHERE codigo = ?", (codigo,))
+                conn.commit()
+        finally:
+            conn.close()
+
+        if fila is None:
+            return jsonify({"status": "error", "mensaje": "Código de acceso inválido o ya usado."}), 400
+        if time.time() - fila["creado_en"] > CODIGO_TTL_SEGUNDOS:
+            return jsonify({"status": "error", "mensaje": "El enlace de acceso expiró. Volvé a entrar desde el CRM."}), 400
+
+        try:
+            datos = json.loads(fila["payload_json"])
+        except Exception:
+            return jsonify({"status": "error", "mensaje": "Perfil de sesión corrupto."}), 500
+
+        token_warehouse = datos.pop("token", None)
+        if not token_warehouse:
+            return jsonify({"status": "error", "mensaje": "Sesión sin token firmado."}), 500
+
+        return jsonify({"status": "success", "token": token_warehouse, "user": datos})
 
     @app.route("/api/sso/project_id", methods=["GET"])
     def sso_project_id():

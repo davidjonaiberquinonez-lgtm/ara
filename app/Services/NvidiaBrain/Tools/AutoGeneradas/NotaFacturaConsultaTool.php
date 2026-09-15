@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace App\Services\NvidiaBrain\Tools\AutoGeneradas;
 
 use App\Services\NvidiaBrain\Contracts\AgentToolInterface;
+use App\Services\NvidiaBrain\Tools\Common\CardBuilder;
+use PDO;
+
+require_once __DIR__ . '/../Common/CardBuilder.php';
 
 /**
  * Tool auto-generada por ARA Coder (servicio independiente, puerto 8010).
@@ -39,6 +43,7 @@ final class NotaFacturaConsultaTool implements AgentToolInterface
 
     public function execute(array $arguments, array $contexto): array
     {
+        $pdo = null;
         try {
         $pdo = new PDO('sqlite:C:\\ARA_PROYECT\\ara\\ARA_Brain\\data\\proyecto_ara.db', null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -47,9 +52,28 @@ final class NotaFacturaConsultaTool implements AgentToolInterface
             $stmt->bindValue(':num_nota', (float) ($arguments['num_nota'] ?? 0));
             $stmt->execute();
             $filas = $stmt->fetchAll();
-            return ['ok' => true, 'filas' => $filas, 'total' => count($filas)];
+            $total = count($filas);
+            $cb = CardBuilder::iniciar('🤖', 'Obtiene la nota y la factura asociada a partir de un número de nota específico');
+            if ($total > 0) {
+                $cb->seccion('Resultados (' . $total . ')');
+                $cb->fila(array_keys($filas[0]));
+                foreach (array_slice($filas, 0, 11) as $fila) {
+                    $cb->fila(array_values(array_map('strval', $fila)));
+                }
+                if ($total > 11) {
+                    $cb->linea('+' . ($total - 11) . ' fila(s) más (no mostradas).');
+                }
+            } else {
+                $cb->linea('Sin resultados.');
+            }
+            $cb->footer('SQLite ARA Warehouse — skill auto-generada por ARA Coder');
+            $card = $cb->tarjeta();
+            return ['ok' => true, 'filas' => $filas, 'total' => $total, 'card' => $card];
         } catch (\Throwable $e) {
             return ['ok' => false, 'error' => $e->getMessage()];
+        } finally {
+            $pdo = null;
+            gc_collect_cycles();
         }
     }
 }

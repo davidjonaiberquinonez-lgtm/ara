@@ -28,7 +28,7 @@ import sqlite3
 import time
 from typing import Dict, List, Optional
 
-from flask import jsonify, request
+from flask import abort, jsonify, request
 
 try:
     from ara_vision import procesar_imagen_visor
@@ -39,6 +39,8 @@ from visor_articulos.adapters.php_catalog_adapter import (
     PhpCatalogAdapter,
     cargar_o_ingerir,
 )
+from visor_articulos.adapters.qdrant_vector_adapter import QdrantVectorAdapter
+from visor_articulos.adapters.vl_gdx_adapter import VlGdxAdapter
 from visor_articulos.application.visor_service import MotorBusquedaVisual
 from visor_articulos.domain.articulo_matcher import ResultadoBusqueda
 
@@ -54,6 +56,14 @@ CACHE_DIR = os.environ.get(
     "ARA_VISOR_CACHE_DIR",
     os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "cache_vectorial_clip"),
 )
+
+# Seguridad: mismo patrón que api_publico_routes.py — X-API-Key contra
+# ARA_API_PUBLICA_KEY. Antes /api/visor/* no tenía ninguna autenticación
+# (cualquiera en internet podía gastar el pool de claves NVIDIA NIM /
+# DeepSeek Vision); se agregó al preparar la exposición pública vía Caddy en
+# ara.cristmedicals.com. Reutiliza la misma clave que /api/publico/* para no
+# sumar un secreto más a gestionar.
+API_KEY = os.environ.get("ARA_API_PUBLICA_KEY", "")
 
 _MOTOR_GLOBAL: Optional[MotorBusquedaVisual] = None
 
@@ -83,15 +93,37 @@ def _crear_motor(
     adapter: Optional[PhpCatalogAdapter] = None,
     cache_dir: Optional[str] = None,
 ) -> MotorBusquedaVisual:
-    """Construye el motor con el índice en memoria y la cadena de fallbacks.
+    """Construye el motor del visor híbrido.
 
-    Cadena: PHP (obtener_productos.php) -> caché en disco -> carpeta local ->
-    BD local (stock_maestro + CDN) -> vacío. El estado de la ingesta queda
-    expuesto en `motor._estado_ingesta`.
+    Backend por defecto (03/09, a pedido explícito del usuario: "conectar
+    el visor híbrido al motor VL y a la base vectorial de la GDX"):
+    índice visual = Qdrant en la GDX (ya poblado con el catálogo real,
+    10.490 fotos, ver ingesta_visual.py en GDX SPARK GB10) + OCR = motor VL
+    real de la GDX (Qwen3-VL-30B, vLLM puerto 8001). Ninguno de los dos
+    mantiene copia en RAM local ni re-ingiere nada al arrancar — el estado
+    se lee en vivo de Qdrant (`cantidad_productos`), no de una cadena de
+    fallbacks PHP/caché/BD como antes.
+
+    Respaldo: ARA_VISOR_BACKEND=cpu_local vuelve al índice CLIP en RAM
+    (CPU, re-ingerido desde PHP/CDN en cada arranque) para seguir operando
+    si la GDX está apagada/inaccesible — código intacto, solo deja de ser
+    el default.
     """
-    indice = ClipVectorAdapter(cache_dir=cache_dir or CACHE_DIR)
-    estado = cargar_o_ingerir(indice, adapter=adapter or PhpCatalogAdapter())
-    motor = MotorBusquedaVisual(indice)
+    if os.environ.get("ARA_VISOR_BACKEND", "gdx").strip().lower() == "cpu_local":
+        indice = ClipVectorAdapter(cache_dir=cache_dir or CACHE_DIR)
+        estado = cargar_o_ingerir(indice, adapter=adapter or PhpCatalogAdapter())
+        motor = MotorBusquedaVisual(indice)
+        motor._estado_ingesta = estado
+        return motor
+
+    indice = QdrantVectorAdapter()
+    n = indice.cantidad_productos
+    estado = {
+        "origen": "qdrant_gdx",
+        "productos_indexados": n,
+        "error": None if n > 0 else "Qdrant de la GDX no respondió o la colección está vacía.",
+    }
+    motor = MotorBusquedaVisual(indice, extractor_texto=VlGdxAdapter())
     motor._estado_ingesta = estado
     return motor
 
@@ -119,6 +151,16 @@ def register_visor_routes(
         f"(origen: {estado.get('origen', 'desconocido')})",
         flush=True,
     )
+
+    @app.before_request
+    def _exigir_api_key_visor():
+        if not request.path.startswith("/api/visor/"):
+            return None
+        if not API_KEY:
+            abort(503, description="ARA_API_PUBLICA_KEY no está configurada en el servidor.")
+        if request.headers.get("X-API-Key") != API_KEY:
+            abort(401, description="Falta o es inválido el header X-API-Key.")
+        return None
 
     @app.route("/api/visor/estado", methods=["GET"])
     def visor_estado():

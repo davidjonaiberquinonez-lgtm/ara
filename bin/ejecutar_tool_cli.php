@@ -10,15 +10,15 @@ declare(ticks=1);
 // Profit, el proceso muere solo. El invocador Python añade además un
 // fusible (kill) de respaldo.
 //   - default 30s para skills directas de datos (consultas Profit ≤5s).
-//   - hereda ARA_CLI_MAX_S del invocador (35s fusible / 300s delegadas).
+//   - hereda ARA_CLI_MAX_S del invocador (35s fusible / 600s delegadas).
 //   - tools delegadas (python_* skills, hermes_chat) corren en subproceso
-//     propio con timeout interno; reciben margen mayor (300s) para no
-//     romper orquestación.
+//     propio con timeout interno; reciben margen mayor (hasta 1800s) para
+//     no romper orquestación en tareas de análisis de proyecto completo.
 // ═══════════════════════════════════════════════════════════════════════
 $r_modo = $_SERVER['argv'][1] ?? '';
 $r_delegadoLargo = preg_match('/^(?:python_|hermes_chat)/', $r_modo) === 1;
-$r_maxS = (int) (getenv('ARA_CLI_MAX_S') ?: ($r_delegadoLargo ? '300' : '30'));
-$r_maxS = max(5, min(600, $r_maxS));
+$r_maxS = (int) (getenv('ARA_CLI_MAX_S') ?: ($r_delegadoLargo ? '600' : '30'));
+$r_maxS = max(5, min(1800, $r_maxS));
 set_time_limit($r_maxS);
 ini_set('max_execution_time', (string) $r_maxS);
 ini_set('memory_limit', '128M');

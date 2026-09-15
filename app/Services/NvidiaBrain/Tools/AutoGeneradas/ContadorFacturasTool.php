@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\NvidiaBrain\Tools\AutoGeneradas;
+
+use App\Services\NvidiaBrain\Contracts\AgentToolInterface;
+use App\Services\NvidiaBrain\Tools\Common\CardBuilder;
+use PDO;
+
+require_once __DIR__ . '/../Common/CardBuilder.php';
+
+/**
+ * Tool auto-generada por ARA Coder (servicio independiente, puerto 8010).
+ * NO editar a mano — se regenera sola cuando ARA Coder resuelve una
+ * consulta similar de nuevo. Pregunta que la originó (referencia, no se
+ * usa en tiempo de ejecución): ver catálogo en generated_skills/catalog.json.
+ */
+final class ContadorFacturasTool implements AgentToolInterface
+{
+    private const QUERY = 'SELECT COUNT(*) AS cantidad_facturas_vencidas FROM facturas WHERE co_cli = :co_cli AND saldo > 0 AND fec_venc < DATE(\'now\')';
+
+    public function getName(): string
+    {
+        return 'contar_facturas_vencidas';
+    }
+
+    public function getDescription(): string
+    {
+        return 'cuenta la cantidad de facturas vencidas para un cliente específico identificado por su número de cliente.';
+    }
+
+    public function getParameters(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'co_cli' => ['type' => 'string', 'description' => 'Valor para el filtro co_cli.'],
+            ],
+            'required' => ['co_cli'],
+        ];
+    }
+
+    public function execute(array $arguments, array $contexto): array
+    {
+        $pdo = null;
+        try {
+        $pdo = new PDO('sqlite:C:\\ARA_PROYECT\\ara\\ARA_Brain\\data\\proyecto_ara.db', null, null, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+            $stmt = $pdo->prepare(self::QUERY);
+            $stmt->bindValue(':co_cli', (string) ($arguments['co_cli'] ?? ''));
+            $stmt->execute();
+            $filas = $stmt->fetchAll();
+            $total = count($filas);
+            $cb = CardBuilder::iniciar('🤖', 'cuenta la cantidad de facturas vencidas para un cliente específico identificado por su número de cliente.');
+            if ($total > 0) {
+                $cb->seccion('Resultados (' . $total . ')');
+                $cb->fila(array_keys($filas[0]));
+                foreach (array_slice($filas, 0, 11) as $fila) {
+                    $cb->fila(array_values(array_map('strval', $fila)));
+                }
+                if ($total > 11) {
+                    $cb->linea('+' . ($total - 11) . ' fila(s) más (no mostradas).');
+                }
+            } else {
+                $cb->linea('Sin resultados.');
+            }
+            $cb->footer('SQLite ARA Warehouse — skill auto-generada por ARA Coder');
+            $card = $cb->tarjeta();
+            return ['ok' => true, 'filas' => $filas, 'total' => $total, 'card' => $card];
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'error' => $e->getMessage()];
+        } finally {
+            $pdo = null;
+            gc_collect_cycles();
+        }
+    }
+}

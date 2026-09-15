@@ -541,4 +541,10 @@ def api_spid_query(spid):
 
 if __name__ == "__main__":
     print("=== Dashboard Watchdog SQL — http://localhost:5005 ===")
-    app.run(host="0.0.0.0", port=5005, debug=False)
+    # Waitress en vez del server de desarrollo de Flask (04/09, a pedido del
+    # usuario: "todos los servidores multiusuario en Waitress") — mismo
+    # criterio que ara_server.py/ara_coder_service: el dev server de Flask
+    # solo atiende una petición a la vez sin threaded=True, y este dashboard
+    # lo pollean varios operadores/DIP a la vez (/api/analisis, /api/vivo).
+    from waitress import serve
+    serve(app, host="0.0.0.0", port=5005, threads=8)

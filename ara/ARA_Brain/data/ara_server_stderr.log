@@ -1,0 +1,170 @@
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173530 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173663 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173771 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173350 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173609 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173609 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173609 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72103784 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173700 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\services\kokoro_tts.py", line 154, in _obtener_engine
+    from kokoro_onnx import Kokoro
+ModuleNotFoundError: No module named 'kokoro_onnx'
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173555 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173555 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72173730 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\ara\ARA_Brain\services\kokoro_tts.py", line 154, in _obtener_engine
+    from kokoro_onnx import Kokoro
+ModuleNotFoundError: No module named 'kokoro_onnx'
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72170062 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72172170 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72174050 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72100103 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72104285 ya fue registrada y no puede duplicarse.
+Traceback (most recent call last):
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 99, in procesar_escaneo_nota
+    nota_ext, origen, _almacen = self._cargar_nota_externa(codigo)
+                                 ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\ARA_PROYECT\preparacion\application\preparation_service.py", line 80, in _cargar_nota_externa
+    nota_ext = self._repositorio.get_nota_by_barcode(almacen["num_nota"])
+  File "C:\ARA_PROYECT\preparacion\infrastructure\adapters\legacy_http_adapter.py", line 394, in get_nota_by_barcode
+    raise error
+preparacion.domain.models.NotaAlreadyPreparedError: La nota 72174105 ya fue registrada y no puede duplicarse.

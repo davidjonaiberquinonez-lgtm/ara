@@ -200,6 +200,24 @@
     opacity: .85;
     transition: opacity .22s ease;
   }
+  /* Animación de "procesando" — mismo indicador para Automático y ARA
+     Coder. Sin fondo/borde de burbuja de chat (ni .msg/.burbuja) y sin
+     fondo propio: el canvas queda transparente, se ve el fondo real del
+     chat detrás.
+
+     A pedido (28/08): la primera versión ponía el avatar como un <div>
+     HTML aparte, al lado del <canvas> de la onda — dos elementos DOM
+     distintos, cada uno con su propia animación (CSS uno, canvas el
+     otro), sin relación real entre sí más que estar pegados. Se sentía
+     forzado/pegado con cinta, no una sola cosa. Ahora el orbe se dibuja
+     DENTRO del mismo canvas, en el mismo loop de requestAnimationFrame
+     que la onda — un solo elemento, un solo reloj de animación (`time`),
+     nada de sincronizar dos relojes distintos. Ver _iniciarCanvasPensando. */
+  #indicador-escribiendo {
+    width: 100%; margin: 10px 0;
+  }
+  #indicador-escribiendo canvas { display: block; width: 100%; height: 60px; background: transparent; }
+  #indicador-escribiendo .pensando-txt { text-align: center; padding: 6px 4px 0; }
 
   /* Pasos de herramientas de ARA Coder — misma idea que ver los tool-calls
      de una terminal de agente: cada paso aparece, "corre" con el ícono
@@ -277,11 +295,23 @@
   .barra-inferior {
     display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 0 4px;
   }
-  #selector-modelo {
+  /* Selects de la barra inferior (28/08): antes #selector-departamento no
+     tenía NINGÚN estilo propio — se veía con la flecha nativa del
+     navegador, gris y desalineada al lado del selector de modelo (que sí
+     tiene forma de píldora). Mismo estilo para los dos ahora, y la flecha
+     nativa se saca (appearance: none) para reemplazarla por un ícono
+     Lucide real (chevron-down), consistente con el resto de la app. */
+  .selector-con-icono { position: relative; display: inline-flex; align-items: center; }
+  #selector-modelo, #selector-departamento {
     background: none; border: 1px solid var(--border); color: var(--text-dim);
-    font-size: 11px; padding: 5px 10px; border-radius: 999px; cursor: pointer; font-family: inherit;
+    font-size: 11px; padding: 5px 24px 5px 10px; border-radius: 999px; cursor: pointer; font-family: inherit;
+    appearance: none; -webkit-appearance: none; -moz-appearance: none;
   }
-  #selector-modelo:hover { border-color: var(--accent1); color: var(--text); }
+  #selector-modelo:hover, #selector-departamento:hover { border-color: var(--accent1); color: var(--text); }
+  .selector-con-icono .chevron-select {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    pointer-events: none; width: 13px; height: 13px; color: var(--text-dim);
+  }
   .nota-pie { font-size: 10.5px; color: var(--text-dim); }
 
   #pantalla-login {
@@ -358,7 +388,7 @@
           del sistema. Para preguntas generales o soporte, te asisto con razonamiento lógico
           e interactivo.
         </div>
-        <div class="sugerencias">
+        <div class="sugerencias" id="sugerencias-caja">
           <div class="sugerencia" onclick="preguntaSugerida(this)">¿Cómo van las rutas?</div>
           <div class="sugerencia" onclick="preguntaSugerida(this)">Busca el inventario de MD04668</div>
           <div class="sugerencia" onclick="preguntaSugerida(this)">Saldo del cliente FAR01680</div>
@@ -379,10 +409,24 @@
         </button>
       </div>
       <div class="barra-inferior">
-        <select id="selector-modelo" title="Motor de respuesta">
-          <option value="auto">✦ Automático (tools + IA)</option>
-          <option value="ara_coder">⚡ ARA Coder (Auto-Skill + Agente)</option>
-        </select>
+        <div class="selector-con-icono">
+          <select id="selector-modelo" title="Motor de respuesta">
+            <option value="auto">✦ Automático (tools + IA)</option>
+            <option value="ara_coder">⚡ ARA Coder (Auto-Skill + Agente)</option>
+          </select>
+          <i data-lucide="chevron-down" class="chevron-select"></i>
+        </div>
+        <div class="selector-con-icono">
+          <select id="selector-departamento" title="Departamento (sugerencias de tools)" onchange="actualizarSugerenciasPorDepartamento()">
+            <option value="">Sin departamento</option>
+            <option value="Almacen">Almacén</option>
+            <option value="Auditoria">Auditoría</option>
+            <option value="Compras">Compras</option>
+            <option value="Despacho">Despacho</option>
+            <option value="Recepcion">Recepción</option>
+          </select>
+          <i data-lucide="chevron-down" class="chevron-select"></i>
+        </div>
         <div class="nota-pie">Puede cometer errores — verificá datos críticos en el sistema.</div>
       </div>
     </div>
@@ -391,10 +435,8 @@
 
 <script>
 const ARA_SERVER = "";
-// ARA Coder: microservicio independiente (puerto 8010), corre en la misma
-// máquina — se le habla siempre por localhost, nunca por el dominio/túnel
-// de ARA Intelligent (ese servicio no está expuesto ahí).
-const ARA_CODER_URL = "http://localhost:8010";
+// ARA Coder (puerto 8010) ya no se llama directo desde el navegador — pasa
+// por ${ARA_SERVER}/api/ara_inteligente/ara_coder_proxy (mismo origen).
 let usuarioId = "", usuarioNombre = "";
 let chatActualId = null;
 let listaChats = [];
@@ -463,7 +505,14 @@ async function alternarAnclado(chatId) {
 async function eliminarChat(chatId) {
   if (!confirm('¿Eliminar esta conversación?')) return;
   try {
-    await fetch(`${ARA_SERVER}/api/ara_inteligente/chats/${chatId}`, { method: 'DELETE' });
+    const res = await fetch(`${ARA_SERVER}/api/ara_inteligente/chats/${chatId}?usuario_id=${encodeURIComponent(usuarioId)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.status !== 'success') {
+      // Antes esto se ignoraba en silencio — el chat "no se eliminaba" sin
+      // ningún aviso, parecía un bug fantasma. Ahora se avisa explícito.
+      alert(data.mensaje || 'No se pudo eliminar la conversación.');
+      return;
+    }
     if (chatId === chatActualId) nuevoChat();
     await cargarListaChats();
   } catch (e) { alert('Error de conexión: ' + e); }
@@ -510,8 +559,64 @@ async function abrirChat(chatId) {
 
 // ================= Mensajes =================
 function preguntaSugerida(el) {
-  document.getElementById('input-mensaje').value = el.innerText;
+  // Las sugerencias por departamento llevan un prompt real (descripción de
+  // la tool) distinto del label corto que se muestra en el chip — las 4
+  // sugerencias genéricas de siempre no tienen data-prompt, ahí se manda
+  // el texto visible tal cual (comportamiento sin cambios).
+  document.getElementById('input-mensaje').value = el.dataset.prompt || el.innerText;
   enviarPregunta();
+}
+
+// ================= Sugerencias por departamento (selector-departamento) ===
+// A pedido del usuario: casilla de departamento al lado del selector de
+// motor, para sugerir tools reales de ese departamento en vez de las 4
+// preguntas genéricas de siempre. Por defecto ("Sin departamento") no
+// cambia nada — quedan las sugerencias originales.
+const SUGERENCIAS_POR_DEFECTO = [
+  '¿Cómo van las rutas?',
+  'Busca el inventario de MD04668',
+  'Saldo del cliente FAR01680',
+  'Operadores inactivos',
+];
+let catalogoToolsCache = null;
+
+async function cargarCatalogoTools() {
+  if (catalogoToolsCache) return catalogoToolsCache;
+  try {
+    const res = await fetch(`${ARA_SERVER}/api/tools/catalogo`);
+    const data = await res.json();
+    catalogoToolsCache = (data && Array.isArray(data.catalogo)) ? data.catalogo : [];
+  } catch (e) {
+    console.warn('No se pudo cargar el catálogo de tools:', e);
+    catalogoToolsCache = [];
+  }
+  return catalogoToolsCache;
+}
+
+function humanizarNombreTool(nombre) {
+  return String(nombre || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+async function actualizarSugerenciasPorDepartamento() {
+  const caja = document.getElementById('sugerencias-caja');
+  const depto = document.getElementById('selector-departamento').value;
+
+  if (!depto) {
+    caja.innerHTML = SUGERENCIAS_POR_DEFECTO
+      .map((t) => `<div class="sugerencia" onclick="preguntaSugerida(this)">${escHtml(t)}</div>`)
+      .join('');
+    return;
+  }
+
+  const catalogo = await cargarCatalogoTools();
+  const delDepto = catalogo.filter((t) => t.departamento === depto).slice(0, 4);
+  if (delDepto.length === 0) {
+    caja.innerHTML = '<div class="sugerencia" style="opacity:.6; cursor:default;">Sin tools registradas en este departamento todavía.</div>';
+    return;
+  }
+  caja.innerHTML = delDepto
+    .map((t) => `<div class="sugerencia" title="${escHtml(t.descripcion || '')}" data-prompt="${escHtml(t.descripcion || t.nombre)}" onclick="preguntaSugerida(this)">${escHtml(humanizarNombreTool(t.nombre))}</div>`)
+    .join('');
 }
 
 document.getElementById('input-mensaje').addEventListener('keydown', (e) => {
@@ -599,21 +704,237 @@ const FRASES_PENSANDO = [
 ];
 let intervaloFrasesPensando = null;
 
+// Onda transparente compacta mientras se espera respuesta — mismo
+// indicador para Automático y ARA Coder (los dos pasan por
+// mostrarEscribiendo() al arrancar). A pedido del usuario (26/08):
+// transparente de verdad (clearRect, no fondo propio), 60px, 3 capas
+// cian/índigo/violeta. El listener de resize se quita solo cuando el
+// canvas sale del DOM (mismo candado anti-fuga usado en dibujar()) —
+// si no, cada mensaje nuevo dejaría un listener acumulado en window.
+//
+// Versión (28/08, pulida): el trazo se desintegra en partículas reales
+// (array de estado, no solo fase calculada) que son succionadas por el
+// orbe con una curva gravitatoria hacia su centro, y cada absorción
+// dispara un destello breve en el núcleo — refuerza visualmente que el
+// orbe está "extrayendo" la onda, no solo que hay dos cosas animándose
+// una al lado de la otra.
+function _iniciarCanvasPensando(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let time = 0;
+
+  const colores = ['rgba(0, 242, 254, 0.95)', 'rgba(79, 70, 229, 0.95)', 'rgba(157, 78, 221, 0.95)'];
+
+  function medidas() {
+    if (!canvas.parentElement) return;
+    const dpr = window.devicePixelRatio || 1;
+    const ancho = canvas.parentElement.clientWidth || 300;
+    const alto = 60; // fijo: evita colapsos si clientHeight da 0 a mitad de layout
+    canvas.width = ancho * dpr;
+    canvas.height = alto * dpr;
+    // setTransform (no scale) para no acumular escala en cada resize.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function resize() {
+    if (!document.body.contains(canvas)) {
+      window.removeEventListener('resize', resize);
+      return;
+    }
+    medidas();
+  }
+
+  // Radio base del orbe y su centro (pegado al borde izquierdo) — mismos
+  // valores usados por la onda, las partículas y el propio orbe, para que
+  // los tres se calculen contra el mismo punto y no queden desalineados.
+  const CX = 24;
+  const RADIO_BASE = 10;
+  const NUM_PARTICULAS = 12;
+
+  // Partículas con estado real (velocidad y tamaño propios, aleatorios por
+  // partícula) en vez de una sola fórmula compartida — se ven más
+  // orgánicas/vivas que partículas idénticas espaciadas parejo.
+  const particulas = [];
+  for (let k = 0; k < NUM_PARTICULAS; k++) {
+    particulas.push({
+      canal: k % 3,
+      progreso: Math.random(), // 0 = recién nacida (zona de desintegración), 1 = absorbida
+      speed: 0.007 + Math.random() * 0.006,
+      size: 1.2 + Math.random() * 1.5,
+    });
+  }
+
+  let destelloAbsorcion = 0; // pulso breve del núcleo cada vez que "entra" una partícula
+
+  function dibujar() {
+    // Se detiene sola: si el indicador ya se sacó del DOM (quitarEscribiendo
+    // hace .remove()), este canvas puntual deja de existir en el documento
+    // — sin este chequeo, el loop de requestAnimationFrame seguiría
+    // corriendo para siempre en segundo plano en cada chat nuevo (fuga de
+    // CPU/memoria, mismo espíritu anti-zombi del resto del proyecto, acá
+    // del lado del navegador). quitarEscribiendo() además cancela
+    // canvas._rafId directo, así el corte es inmediato y no espera a este
+    // chequeo del siguiente frame.
+    if (!document.body.contains(canvas)) {
+      if (canvas._rafId) cancelAnimationFrame(canvas._rafId);
+      return;
+    }
+
+    time += 0.025;
+    const dpr = window.devicePixelRatio || 1;
+    const ancho = canvas.width / dpr;
+    const alto = canvas.height / dpr;
+    const centroY = alto / 2;
+    const cy = centroY;
+
+    ctx.clearRect(0, 0, ancho, alto);
+
+    const finX = Math.max(ancho - 15, CX + 50);
+    const rango = finX - CX;
+
+    if (destelloAbsorcion > 0) destelloAbsorcion *= 0.92; // decae solo, sin timer aparte
+
+    // 1) Resplandor exterior del orbe — reactivo: crece de golpe con cada
+    // destello de absorción, además del pulso constante de fondo.
+    const pulso = Math.sin(time * 2.2) * 2 + (destelloAbsorcion * 4);
+    const radio = RADIO_BASE + pulso;
+    const resplandor = ctx.createRadialGradient(CX, cy, 1, CX, cy, radio * 2.6);
+    resplandor.addColorStop(0, `rgba(157, 78, 221, ${0.45 + destelloAbsorcion * 0.35})`);
+    resplandor.addColorStop(1, 'rgba(157, 78, 221, 0)');
+    ctx.beginPath();
+    ctx.arc(CX, cy, radio * 2.6, 0, Math.PI * 2);
+    ctx.fillStyle = resplandor;
+    ctx.fill();
+
+    // 2) Onda — nace pegada al orbe (x = CX). El trazo sólido dura hasta el
+    // 72% del rango (pCorte); el 28% final se dibuja con un degradado que
+    // se apaga hacia la derecha, como si la línea se estuviera disolviendo
+    // en las partículas que siguen su misma curva.
+    for (let i = 0; i < 3; i++) {
+      const freq = 0.01 + i * 0.003;
+      const amp = 16 - i * 3;
+      const offset = i * (Math.PI / 3);
+      const pCorte = 0.72;
+      const xCorte = CX + rango * pCorte;
+
+      ctx.beginPath();
+      for (let x = CX; x <= xCorte; x += 2) {
+        const progreso = (x - CX) / rango;
+        const envolvente = Math.sin(progreso * Math.PI) * Math.pow(progreso, 0.3);
+        const y = centroY + Math.sin(x * freq + time + offset) * amp * envolvente;
+        if (x === CX) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = colores[i];
+      ctx.lineWidth = 2.2 - i * 0.3;
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = colores[i];
+      ctx.stroke();
+
+      ctx.beginPath();
+      for (let x = xCorte; x <= finX; x += 2) {
+        const progreso = (x - CX) / rango;
+        const envolvente = Math.sin(progreso * Math.PI) * Math.pow(progreso, 0.3);
+        const y = centroY + Math.sin(x * freq + time + offset) * amp * envolvente;
+        if (x === xCorte) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      const grad = ctx.createLinearGradient(xCorte, 0, finX, 0);
+      grad.addColorStop(0, colores[i]);
+      grad.addColorStop(1, 'rgba(0, 242, 254, 0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = (2.2 - i * 0.3) * 0.85;
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = colores[i];
+      ctx.stroke();
+    }
+
+    // 3) Partículas: nacen en la zona de desintegración y viajan hacia el
+    // orbe con succión gravitatoria (se curvan hacia el centro Y conforme
+    // se acercan, no solo se achican en línea recta) — al llegar a
+    // progreso=1 se consideran absorbidas, disparan el destello, y
+    // renacen en 0 (recicladas, sin crear/destruir objetos cada frame).
+    for (let k = 0; k < NUM_PARTICULAS; k++) {
+      const p = particulas[k];
+      p.progreso += p.speed;
+      if (p.progreso >= 1.0) {
+        p.progreso = 0;
+        destelloAbsorcion = Math.min(1.0, destelloAbsorcion + 0.16);
+      }
+
+      const distAbsorbida = p.progreso; // 0 = en la zona de desintegración, 1 = en el orbe
+      const x = finX - distAbsorbida * rango;
+
+      const i = p.canal;
+      const freq = 0.01 + i * 0.003;
+      const amp = 16 - i * 3;
+      const offset = i * (Math.PI / 3);
+
+      const progresoOnda = Math.max(0, (x - CX) / rango);
+      const envolvente = Math.sin(progresoOnda * Math.PI) * Math.pow(progresoOnda, 0.3);
+      const ySinusoidal = centroY + Math.sin(x * freq + time + offset) * amp * envolvente;
+
+      // Succión: mientras más cerca del orbe, más se desvía la trayectoria
+      // de la curva de la onda hacia el centro Y del orbe (cy).
+      const factorSuccion = Math.pow(distAbsorbida, 2.2);
+      const y = ySinusoidal * (1 - factorSuccion) + cy * factorSuccion;
+
+      // Opacidad: aparece gradual al nacer, visible en el viaje, se apaga
+      // justo antes de "entrar" al núcleo (no hace un corte brusco).
+      let alfa = 1;
+      if (distAbsorbida < 0.15) alfa = distAbsorbida / 0.15;
+      else if (distAbsorbida > 0.82) alfa = (1.0 - distAbsorbida) / 0.18;
+
+      const tamanoActual = (p.size + (1 - distAbsorbida) * 1.1) * Math.max(0.05, alfa);
+
+      ctx.beginPath();
+      ctx.arc(x, y, tamanoActual, 0, Math.PI * 2);
+      ctx.fillStyle = colores[i].replace('0.95', (alfa * 0.95).toFixed(2));
+      ctx.shadowBlur = 9;
+      ctx.shadowColor = colores[i];
+      ctx.fill();
+    }
+
+    // 4) Núcleo del orbe — al final, encima de todo. Gradiente cónico
+    // girando (mismo `time` de la onda, sin @keyframes de CSS aparte), con
+    // un salto de giro y de brillo en cada destello de absorción.
+    ctx.beginPath();
+    ctx.arc(CX, cy, radio, 0, Math.PI * 2);
+    if (ctx.createConicGradient) {
+      const nucleo = ctx.createConicGradient((time * 1.5) + (destelloAbsorcion * Math.PI), CX, cy);
+      nucleo.addColorStop(0, colores[0]);
+      nucleo.addColorStop(0.33, colores[1]);
+      nucleo.addColorStop(0.66, colores[2]);
+      nucleo.addColorStop(1, colores[0]);
+      ctx.fillStyle = nucleo;
+    } else {
+      // Respaldo para navegadores sin createConicGradient (ej. Safari viejo).
+      ctx.fillStyle = colores[1];
+    }
+    ctx.shadowBlur = 12 + (destelloAbsorcion * 14);
+    ctx.shadowColor = colores[0];
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    canvas._rafId = requestAnimationFrame(dibujar);
+  }
+
+  window.addEventListener('resize', resize);
+  medidas();
+  dibujar();
+}
+
 function mostrarEscribiendo() {
+  quitarEscribiendo(); // por si quedó una instancia previa sin limpiar (defensivo)
   const hilo = document.getElementById('hilo');
   const div = document.createElement('div');
-  div.className = 'msg bot';
   div.id = 'indicador-escribiendo';
   div.innerHTML = `
-    <div class="msg-fila">
-      <div class="avatar bot pensando">✦</div>
-      <div class="burbuja">
-        <div class="escribiendo"><span></span><span></span><span></span></div>
-        <div class="pensando-txt" id="txt-pensando">${FRASES_PENSANDO[0]}</div>
-      </div>
-    </div>`;
+    <canvas id="canvas-pensando"></canvas>
+    <div class="pensando-txt" id="txt-pensando">${FRASES_PENSANDO[0]}</div>`;
   hilo.appendChild(div);
   hilo.scrollTop = hilo.scrollHeight;
+  _iniciarCanvasPensando(document.getElementById('canvas-pensando'));
 
   let i = 0;
   intervaloFrasesPensando = setInterval(() => {
@@ -630,7 +951,14 @@ function mostrarEscribiendo() {
 
 function quitarEscribiendo() {
   if (intervaloFrasesPensando) { clearInterval(intervaloFrasesPensando); intervaloFrasesPensando = null; }
-  document.getElementById('indicador-escribiendo')?.remove();
+  const el = document.getElementById('indicador-escribiendo');
+  if (!el) return;
+  // Cancela el rAF ya mismo en vez de esperar a que dibujar() lo note en el
+  // siguiente frame (el chequeo document.body.contains sigue como red de
+  // seguridad, pero el corte inmediato evita un frame de más innecesario).
+  const canvas = el.querySelector('canvas');
+  if (canvas && canvas._rafId) cancelAnimationFrame(canvas._rafId);
+  el.remove();
 }
 
 // ================= ARA Coder: esquema visual de las tools que va usando =====
@@ -741,22 +1069,48 @@ async function enviarPregunta() {
   try {
     if (modoSeleccionado === 'ara_coder') {
       // ARA Coder: servicio 100% independiente (puerto 8010, otro proceso,
-      // fuera de ARA Warehouse) — el navegador le habla DIRECTO, no pasa por
-      // el backend de ARA Intelligent. Por diseño corre solo en localhost,
-      // así que este modo únicamente funciona si quien lo usa está en la
-      // misma máquina donde corre el servicio.
+      // fuera de ARA Warehouse). Antes el navegador le hablaba DIRECTO a
+      // localhost:8010 — funcionaba solo si quien probaba estaba
+      // físicamente en la máquina del server ("localhost" del navegador de
+      // un usuario remoto del CRM es SU máquina, nunca la del server: por
+      // eso daba "Failed to fetch" para cualquiera que no fuera el dev
+      // local). Ahora pasa por el backend de ARA Intelligent (mismo origen,
+      // sin CORS ni localhost del cliente de por medio), que reenvía
+      // servidor-a-servidor a ARA Coder.
       const t0 = performance.now();
-      const res = await fetch(`${ARA_CODER_URL}/api/coder/chat`, {
+
+      // Historial REAL de este chat (bug real, 02/09: antes cada pregunta
+      // arrancaba a ARA Coder desde cero, sin memoria de nada dicho antes
+      // en el mismo chat — un "sí, esa misma" después de una respuesta
+      // anterior no tenía forma de saber a qué se refería). Se manda tal
+      // cual al backend, que lo reenvía a ARA Coder para que el LLM lo
+      // tenga en el mismo turno.
+      let historial = [];
+      try {
+        const chatIdHistorial = await asegurarChatActivo();
+        const historialRes = await fetch(`${ARA_SERVER}/api/ara_inteligente/chats/${chatIdHistorial}/mensajes`);
+        const historialData = await historialRes.json();
+        historial = (historialData.mensajes || [])
+          .map(m => ({ role: m.rol === 'usuario' ? 'user' : 'assistant', content: m.contenido }))
+          .slice(-12);
+      } catch (e) {
+        console.warn('No se pudo cargar el historial previo para ARA Coder:', e);
+      }
+
+      const res = await fetch(`${ARA_SERVER}/api/ara_inteligente/ara_coder_proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje: texto }),
+        body: JSON.stringify({ mensaje: texto, historial }),
       });
       const data = await res.json();
       quitarEscribiendo();
       await animarPasosAraCoder(data.trace);
       let textoRespuesta = data.respuesta || data.mensaje || 'No hubo respuesta.';
       if (data.skill_generada && data.skill_generada.generada) {
-        textoRespuesta += `\n\n🧩 Se generó una nueva skill PHP: ${data.skill_generada.archivo} (pendiente de aprobación).`;
+        const estadoSkill = data.skill_generada.aprobada
+          ? 'ya activa para "Automático"'
+          : 'pendiente de aprobación';
+        textoRespuesta += `\n\n🧩 Se generó una nueva skill PHP: ${data.skill_generada.archivo} (${estadoSkill}).`;
       }
       const modeloRespuesta = data.modelo || 'ARA Coder';
       agregarMensajeEscribiendo(textoRespuesta, modeloRespuesta, Math.round(performance.now() - t0));

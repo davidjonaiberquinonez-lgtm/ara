@@ -58,3 +58,27 @@ try {
 } catch {
     Add-Content -Path $log -Value "$hora - Watchdog bloqueos: salida no parseable: $resultado"
 }
+
+# ── Auditoría de bloqueos en 192.168.4.23 (08/09, a pedido del usuario) ──
+# Script SEPARADO (bin/audit_bloqueos_mysql_23.php) que solo lee InnoDB
+# lock waits del MySQL/XAMPP de .23 — nunca mata nada ahí. Si .23 termina
+# bloqueando al SQL Server .20, eso ya lo mata la regla BLOQUEADOR_ACTIVO
+# de arriba (sql_kill_switch.php), sin depender de este bloque. Try/catch
+# propio para que un fallo acá (ej. .23 apagado) nunca tumbe el watchdog
+# de .20, que es el crítico.
+$scriptMysql23 = 'C:\ARA_PROYECT\bin\audit_bloqueos_mysql_23.php'
+if (Test-Path $scriptMysql23) {
+    try {
+        $salidaMysql23 = & $php $scriptMysql23 2>&1
+        $jsonMysql23 = ($salidaMysql23 | Out-String) | ConvertFrom-Json
+        if ($jsonMysql23.success) {
+            if ($jsonMysql23.entradas -gt 0 -or $jsonMysql23.salidas -gt 0) {
+                Add-Content -Path $log -Value "$hora - Auditoria MySQL .23: $($jsonMysql23.entradas) entrada(s), $($jsonMysql23.salidas) salida(s), $($jsonMysql23.activos) activo(s) ahora"
+            }
+        } else {
+            Add-Content -Path $log -Value "$hora - Auditoria MySQL .23: ERROR $($jsonMysql23.error)"
+        }
+    } catch {
+        Add-Content -Path $log -Value "$hora - Auditoria MySQL .23: fallo al ejecutar/parsear ($_)"
+    }
+}

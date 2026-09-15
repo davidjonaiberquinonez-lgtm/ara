@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" type="image/svg+xml" href="static/img/gemini-svg.svg">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0b0e17">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <title>Ara IA - Intelligent Warehouse</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -118,29 +121,37 @@
             max-width: min(92vw, 340px);
         }
 
-        #ara-floating-btn {
-            width: 64px; height: 64px;
-            background: var(--primary); color: white; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 10px 15px rgba(0,0,0,0.3); z-index: 1050; touch-action: none; cursor: pointer;
-        }
-
         @media (max-width: 640px) {
             #dock-flotante-ara { bottom: 12px; right: 12px; gap: 8px; }
-            #ara-floating-btn { width: 54px; height: 54px; }
-            #ara-chat-window { bottom: 78px; right: 12px; width: min(92vw, 320px); }
         }
 
-        #ara-chat-window {
-            position: fixed; bottom: 100px; right: 20px; width: 320px; height: 450px;
-            background: white; border-radius: 24px; display: none; flex-direction: column;
-            box-shadow: 0 20px 25px rgba(0,0,0,0.2); z-index: 999; overflow: hidden;
+        /* PWA (28/08): botón de instalar + campanita de notificaciones,
+           mismo dock flotante que el resto de los accesos rápidos. Ocultos
+           por defecto — install-btn se muestra solo si Chrome dispara
+           beforeinstallprompt (o sea, si de verdad se puede instalar);
+           campana-btn se muestra siempre que el navegador soporte push. */
+        .pwa-dock-btn {
+            display: none; align-items: center; justify-content: center;
+            width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
+            background: #fff; color: var(--primary); box-shadow: 0 6px 12px rgba(0,0,0,0.25);
+            border: 1px solid #e2e8f0;
         }
-        .chat-header { background: var(--primary); color: white; padding: 15px; font-weight: bold; display: flex; justify-content: space-between; }
-        .chat-body { flex: 1; padding: 15px; overflow-y: auto; background: #f8fafc; font-size: 14px; display: flex; flex-direction: column; }
-        .msg { padding: 10px 14px; border-radius: 15px; margin-bottom: 8px; max-width: 85%; line-height: 1.4; }
-        .msg-ara { background: white; align-self: flex-start; border: 1px solid #e2e8f0; color: #334155; }
-        .msg-user { background: var(--accent); color: white; align-self: flex-end; }
+        .pwa-dock-btn.visible { display: flex; }
+        .pwa-dock-btn.activo { background: var(--primary); color: #fff; }
+
+        /* Banner "sin conexión" — franja fija arriba de todo, aparece solo
+           cuando el navegador reporta offline (navigator.onLine + eventos
+           online/offline). No usa position:fixed con top:0 tapando el
+           header porque este proyecto no tiene un header fijo único; se
+           ancla igual arriba de todo el viewport, con z-index por encima
+           del dock y de los overlays de cámara. */
+        #banner-sin-conexion {
+            display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+            background: #dc2626; color: #fff; text-align: center;
+            font-size: 12.5px; font-weight: 700; padding: 8px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        #banner-sin-conexion.visible { display: block; }
 
         .btn-action {
             width: 100%; padding: 12px; border: none; border-radius: 12px; margin-top: 5px;
@@ -259,6 +270,28 @@
     0%, 20% { opacity: 0; }
     50% { opacity: 1; }
     100% { opacity: 0; }
+}
+
+/* Alerta baja "escanea el código de barras" — aparece solo si la búsqueda
+   visual (DeepSeek Vision) lleva más de 5s sin responder, ver
+   _iniciarTipBarcode/_detenerTipBarcode. */
+.visor-tip-barcode {
+    margin-top: 14px;
+    padding: 7px 14px;
+    background: rgba(245,158,11,0.12);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 999px;
+    font-size: 11.5px;
+    color: #92400e;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    animation: visor-tip-fadein 0.4s ease forwards;
+}
+@keyframes visor-tip-fadein {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Animación "cargando pedidos" (Ruta Eficiente) — personita cargando cajas
@@ -945,6 +978,47 @@
     border-top: 1px solid #e2e8f0;
 }
 
+/* ===========================================================================
+   Bandeja de Mensajes + Atención al Cliente — CSS responsivo (28/08)
+   ===========================================================================
+   Antes esto vivía como un <style> armado a mano dentro de
+   renderModuloBandeja() e inyectado con document.head.appendChild() CADA
+   VEZ que se abría/refrescaba el módulo — BUG real: cada visita a la
+   Bandeja (o cada click en el botón de refrescar, que vuelve a llamar a
+   renderModuloBandeja()) agregaba OTRA copia idéntica de este <style> al
+   <head>, sin límite, durante toda la sesión — puro DOM/memoria
+   acumulándose sin necesidad (más notorio en celulares, con menos RAM).
+   Como es CSS 100% estático (nunca depende de datos de la conversación),
+   no hace falta generarlo por JS en absoluto: vive acá, una sola vez.
+
+   `.theme-bubble-me`/`.theme-bubble-other` también se comparten con
+   Atención al Cliente (mismas burbujas visuales); `.theme-bubble-ia` es
+   nueva — antes una respuesta de la IA y una de un agente humano en
+   Atención al Cliente usaban la MISMA burbuja verde "me", diferenciadas
+   solo por una etiqueta de 10px — poco perceptible a simple vista en una
+   pantalla chica. Ahora la IA tiene su propio tono (lila, mismo color de
+   marca que ya se usa para "IA" en el resto de la app). */
+.theme-bubble-me { background: #dcf8c6 !important; align-self: flex-end !important; margin-left: auto !important; border-radius: 12px 12px 0px 12px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+.theme-bubble-other { background: white !important; align-self: flex-start !important; margin-right: auto !important; border-radius: 12px 12px 12px 0px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
+.theme-bubble-ia { background: #ede9fe !important; align-self: flex-end !important; margin-left: auto !important; border-radius: 12px 12px 0px 12px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+@keyframes typingDot {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}
+
+@media (max-width: 768px) {
+    /* Layout maestro-detalle: en celular se ve la LISTA o el CHAT activo,
+       nunca los dos lado a lado apretados (eso era lo que se sentía
+       "roto"/apretado en móvil — el sidebar de 350px fijo no dejaba
+       espacio real para el chat). */
+    .chat-layout { flex-direction: column !important; height: 100dvh !important; border-radius: 0 !important; }
+    #chat-sidebar-view, #ac-sidebar-view { width: 100% !important; min-width: 0 !important; }
+    #chat-sidebar-view.hide-mobile, #ac-sidebar-view.hide-mobile { display: none !important; }
+    #chat-main-window, #ac-main-window { display: none !important; width: 100% !important; }
+    #chat-main-window.show-mobile, #ac-main-window.show-mobile { display: flex !important; }
+    .responsive-back-btn { display: block !important; }
+}
+
     </style>
 </head>
 <body>
@@ -1132,18 +1206,11 @@
     </div>
 </div>
 
+    <div id="banner-sin-conexion">⚠️ Sin conexión — algunas funciones no van a responder hasta que vuelva la señal</div>
+
     <div id="dock-flotante-ara">
-        <div id="ara-floating-btn" onclick="toggleChat()"><i data-lucide="cpu"></i></div>
-    </div>
-    <div id="ara-chat-window">
-        <div class="chat-header"><span>Ara Assistant</span><i data-lucide="x" onclick="toggleChat()" style="width:18px; cursor:pointer"></i></div>
-        <div class="chat-body" id="chat-body">
-            <div class="msg msg-ara">Hola David, ¿qué revisamos hoy en el sistema?</div>
-        </div>
-        <div style="padding:10px; display:flex; gap:5px; background:white; border-top:1px solid #eee;">
-            <input type="text" id="chat-msg" placeholder="Pregunta a Ara..." style="flex:1; padding:10px; border-radius:12px; border:1px solid #ddd; outline:none;">
-            <button onclick="sendAraMsg()" style="background:var(--primary); color:white; border:none; border-radius:12px; padding:0 15px; cursor:pointer;"><i data-lucide="send" style="width:16px;"></i></button>
-        </div>
+        <div id="pwa-instalar-btn" class="pwa-dock-btn" title="Instalar ARA en este dispositivo" onclick="_pwaInstalar()"><i data-lucide="download"></i></div>
+        <div id="pwa-notif-btn" class="pwa-dock-btn" title="Activar notificaciones" onclick="_pwaActivarNotificaciones()"><i data-lucide="bell"></i></div>
     </div>
 
 <script>
@@ -1153,6 +1220,9 @@
 // Ruta relativa: elimina Mixed Content en Cloudflare y permite cualquier puerto/host
 const ARA_SERVER = "";
 console.log("🤖 ARA rutas relativas activas");
+
+// /api/visor/* ahora exige X-API-Key (antes abierta a cualquiera).
+const ARA_VISOR_API_KEY = {{ ara_visor_api_key | tojson }};
 
 const CONFIG_TRASLADOS = { SERVER_API: "" }
 console.log("ARA Conectada a Bulto cerrado Para Translados")
@@ -1340,7 +1410,67 @@ function restaurarSesionUsuario() {
     return true;
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// ── SSO desde el CRM (a pedido: Warehouse deja de exigir login propio
+// cuando llega vía CRM) ────────────────────────────────────────────────────
+// El CRM manda al usuario a /auth/sso/warehouse?token=<jwt del ERP>, que
+// redirige acá con ?sso=<codigo de un solo uso>. Se canjea una vez por el
+// perfil real (rol/sede ya mapeados server-side) y se entra directo al
+// menú, igual que login() — el login propio (id+password) sigue activo
+// como respaldo si no viene ningún ?sso=.
+async function consumirSsoWarehouse(codigo) {
+    try {
+        const res = await fetch(`${ARA_SERVER}/api/sso/consumir_warehouse?codigo=${encodeURIComponent(codigo)}`);
+        const data = await res.json();
+        if (data.status !== 'success') {
+            console.warn('SSO Warehouse: código inválido o expirado —', data.mensaje);
+            return false;
+        }
+        window.usuarioActivo = data.user.nombre || data.user.id;
+        window.usuarioId = data.user.id;
+        window.usuarioRol = data.user.rol || 'operario';
+        window.usuarioPermisos = data.user.permisos || [];
+        window.usuarioSede = data.user.sede || 'BQTO';
+
+        localStorage.setItem('usuario_ara', window.usuarioActivo);
+        localStorage.setItem('usuario_ara_id', window.usuarioId);
+        localStorage.setItem('usuario_sede', window.usuarioSede);
+        guardarSesionUsuario(data.user, data.token);
+
+        document.getElementById('active-user-name').innerText = `Op: ${window.usuarioActivo} (${window.usuarioRol})`;
+        aplicarPermisos(data.user);
+        document.getElementById('login-screen')?.classList.remove('active');
+        document.getElementById('menu-screen')?.classList.add('active');
+        if (typeof iniciarBadgesGlobales === 'function') iniciarBadgesGlobales();
+        console.log('🔓 Sesión iniciada vía SSO del CRM:', window.usuarioActivo, `(${window.usuarioRol})`);
+        return true;
+    } catch (e) {
+        console.warn('Error consumiendo SSO de Warehouse:', e);
+        return false;
+    }
+}
+
+// ── SSO de Warehouse: SOLO explícito ─────────────────────────────────────
+// A pedido del usuario: el chequeo silencioso (sin click, preguntándole al
+// portal si ya hay sesión) NO debe terminar acá — ese comportamiento sigue
+// siendo exclusivo de ARA Intelligent (ara_inteligente.html, sin tocar).
+// Warehouse solo toma sesión cuando alguien clickea un link real con
+// ?sso=<código> (generado por /auth/sso/warehouse tras un JWT válido del
+// CRM) — nunca por cuenta propia. Sin ese código, se muestra el login
+// propio de siempre.
+document.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    const codigoSso = params.get('sso');
+    if (codigoSso) {
+        // Código de un solo uso: se limpia de la URL de inmediato para que
+        // un F5 nunca reintente un código ya consumido (caería a
+        // restaurarSesionUsuario/login normal, no a un error confuso).
+        params.delete('sso');
+        const nuevaUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '') + window.location.hash;
+        window.history.replaceState({}, document.title, nuevaUrl);
+
+        const ok = await consumirSsoWarehouse(codigoSso);
+        if (ok) return;
+    }
     restaurarSesionUsuario();
 });
 
@@ -1428,8 +1558,39 @@ function logout() {
         
         // 5. Forzamos una recarga limpia mediante redirección URL directa.
         // Esto destruye el rastro de la RAM y evita que el navegador autofirme al usuario anterior.
-        window.location.href = window.location.pathname; 
+        window.location.href = window.location.pathname;
     }
+}
+
+// ── Sesión JWT vencida o inválida (401 en endpoints protegidos) ───────────
+// Bug real (28/08): el token de sesión (auth_sesion.py) dura 12h, pero
+// restaurarSesionUsuario() nunca revisa si venció — un turno que deja la
+// pestaña abierta más de 12h sigue "viéndose" logueado (menú, permisos,
+// todo renderiza normal, porque eso no depende del token) pero cualquier
+// endpoint que sí lo verifica (trazabilidad, discrepancias, reportes
+// REPOLAB) empieza a devolver 401 en silencio, sin que el usuario entienda
+// qué pasó ni cómo arreglarlo. A diferencia de logout(), esto es
+// automático (sin confirm()) porque no lo decide el usuario — el server ya
+// dijo que el token no sirve.
+function manejarSesionExpirada() {
+    localStorage.removeItem('ara_token');
+    localStorage.removeItem('ara_sesion_usuario');
+    alert('Tu sesión expiró. Iniciá sesión de nuevo.');
+    window.location.href = window.location.pathname;
+}
+
+// Fetch autenticado: agrega el Bearer token en un solo lugar (antes
+// duplicado igual en cada llamada a /api/reportes/* y /api/rutas_hex/*) y
+// detecta sesión vencida ahí mismo, en vez de que cada call site tenga que
+// acordarse de chequear el 401 por su cuenta (3 de los 5 ni lo chequeaban).
+async function fetchConSesion(url, opciones = {}) {
+    const headers = { ...(opciones.headers || {}), 'Authorization': `Bearer ${window.araToken || localStorage.getItem('ara_token') || ''}` };
+    const res = await fetch(url, { ...opciones, headers });
+    if (res.status === 401) {
+        manejarSesionExpirada();
+        throw new Error('Sesión expirada');
+    }
+    return res;
 }
 
 
@@ -4032,9 +4193,7 @@ async function renderReportesRutaHex() {
     `;
     try {
         const esAdmin = window.usuarioRol === 'admin' || window.usuarioRol === 'supervisor' || (window.usuarioPermisos || []).includes('*');
-        const res = await fetch(`/api/rutas_hex/reporte-finalizadas?user_id=${encodeURIComponent(_rutaHexUserId())}&es_admin=${esAdmin ? 'true' : 'false'}`, {
-            headers: { 'Authorization': `Bearer ${window.araToken || localStorage.getItem('ara_token') || ''}` }
-        });
+        const res = await fetchConSesion(`/api/rutas_hex/reporte-finalizadas?user_id=${encodeURIComponent(_rutaHexUserId())}&es_admin=${esAdmin ? 'true' : 'false'}`);
         const data = await res.json();
         const subrutas = (data.subrutas || []).slice(0, 50);
         const tarjetas = subrutas.map(s => {
@@ -4085,9 +4244,7 @@ async function renderReportesRutaHex() {
 async function _rutaHexImprimir(subrutaId) {
     try {
         const esAdmin = window.usuarioRol === 'admin' || window.usuarioRol === 'supervisor' || (window.usuarioPermisos || []).includes('*');
-        const res = await fetch(`/api/rutas_hex/reporte-finalizadas?user_id=${encodeURIComponent(_rutaHexUserId())}&es_admin=${esAdmin ? 'true' : 'false'}`, {
-            headers: { 'Authorization': `Bearer ${window.araToken || localStorage.getItem('ara_token') || ''}` }
-        });
+        const res = await fetchConSesion(`/api/rutas_hex/reporte-finalizadas?user_id=${encodeURIComponent(_rutaHexUserId())}&es_admin=${esAdmin ? 'true' : 'false'}`);
         const data = await res.json();
         const registros = (data.subrutas || []).filter(s => Number(s.id) === Number(subrutaId));
         if (!registros.length) return alert('Sub-ruta no encontrada.');
@@ -4102,9 +4259,7 @@ async function _rutaHexImprimirSeleccion() {
     const valor = sel?.value || '__todos__';
     try {
         const esAdmin = window.usuarioRol === 'admin' || window.usuarioRol === 'supervisor' || (window.usuarioPermisos || []).includes('*');
-        const res = await fetch(`/api/rutas_hex/reporte-finalizadas?user_id=${encodeURIComponent(_rutaHexUserId())}&es_admin=${esAdmin ? 'true' : 'false'}`, {
-            headers: { 'Authorization': `Bearer ${window.araToken || localStorage.getItem('ara_token') || ''}` }
-        });
+        const res = await fetchConSesion(`/api/rutas_hex/reporte-finalizadas?user_id=${encodeURIComponent(_rutaHexUserId())}&es_admin=${esAdmin ? 'true' : 'false'}`);
         const data = await res.json();
         const todos = data.subrutas || [];
         const registros = valor === '__todos__'
@@ -5183,7 +5338,7 @@ async function procesarCodigoBarrasDirecto(codigo) {
     try {
         const response = await fetch('/api/visor/buscar', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': ARA_VISOR_API_KEY },
             body: JSON.stringify({ codigo_barra: cod })
         });
         const data = await response.json();
@@ -5258,8 +5413,36 @@ function mostrarBuscandoVisor() {
                 Analizando imagen<span class="caja-buscando-dots"><span>.</span><span>.</span><span>.</span></span>
             </p>
             <small style="color:#64748b;">Comparando contra el catálogo de productos</small>
+            <div id="visor-tip-barcode"></div>
         </div>
     `;
+}
+
+// Alerta baja "escanea el código de barras" — DeepSeek Vision (motor
+// principal desde 28/08) razona antes de responder y puede tardar más que
+// los ~4s a los que estaba calibrado NVIDIA NIM. Si a los 5s todavía no hay
+// respuesta, se sugiere el atajo del lector de barras (match exacto en SQL,
+// ~10x más rápido que esperar el análisis de la foto completo).
+let _visorTipTimeout = null;
+
+function _iniciarTipBarcode() {
+    _detenerTipBarcode();
+    _visorTipTimeout = setTimeout(() => {
+        const cont = document.getElementById('visor-tip-barcode');
+        if (!cont) return; // el box ya se reemplazó con un resultado/error
+        cont.innerHTML = `
+            <span class="visor-tip-barcode">
+                📊 ¿Tiene código de barras? Escanéalo — es 10x más rápido que esta búsqueda
+            </span>
+        `;
+    }, 5000);
+}
+
+function _detenerTipBarcode() {
+    if (_visorTipTimeout) {
+        clearTimeout(_visorTipTimeout);
+        _visorTipTimeout = null;
+    }
 }
 
 async function tomarFoto() {
@@ -5296,6 +5479,7 @@ async function tomarFoto() {
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
     if (!blob) { mostrarToast('Error al capturar la imagen.'); return; }
 
+    _iniciarTipBarcode();
     try {
         // Enviar como FormData (multipart)
         const formData = new FormData();
@@ -5304,6 +5488,7 @@ async function tomarFoto() {
         console.log('[VISOR_FRONTEND] 📤 Enviando payload a /api/visor/buscar...');
         const response = await fetch('/api/visor/buscar', {
             method: 'POST',
+            headers: { 'X-API-Key': ARA_VISOR_API_KEY },
             body: formData
         });
 
@@ -5435,6 +5620,8 @@ async function tomarFoto() {
         console.error('[VISOR_FRONTEND] ❌ Error:', e);
         resBox.innerHTML = `<div class="card-item" style="border-left-color: var(--danger); text-align: center; color: var(--danger);">⚠️ No se pudo procesar la imagen, intenta enfocar mejor el producto. Error: ${escHtml(e.message || 'desconocido')}</div>`;
         mostrarToast('Error en Visor: ' + (e.message || 'desconocido'), 'error');
+    } finally {
+        _detenerTipBarcode();
     }
 }
 
@@ -5814,7 +6001,12 @@ function detenerSecuenciaPicking() {
 function _siguienteEnSecuencia() {
     const s = _secuenciaPicking;
     if (!s.activa) return;
-    s.index++;
+    // Salta artículos que ya se completaron por fuera de la secuencia (ej.
+    // el usuario escaneó uno más adelante en la lista antes de que le
+    // tocara el turno) — narrarlo de nuevo sería confuso, ya está listo.
+    do {
+        s.index++;
+    } while (s.index < s.cola.length && _itemYaCompleto(s.cola[s.index]));
     if (s.index >= s.cola.length) {
         detenerSecuenciaPicking();
         kokoroHablar('Recolección finalizada. Todos los artículos han sido recolectados.');
@@ -5828,7 +6020,44 @@ function _siguienteEnSecuencia() {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     reproducirDetalleItem(item);
-    s.timer = setTimeout(_siguienteEnSecuencia, 9000); // 9s por artículo
+    // Ya NO avanza sola por tiempo fijo. Bug real reportado (28/08, "dicta
+    // uno y va con el otro aunque uno no haya sido completado"): con un
+    // setTimeout de 9s, Kokoro narraba la hoja entera a ritmo fijo sin
+    // importar si el usuario ya terminó de recoger el artículo actual.
+    // Ahora espera a que _avanzarSecuenciaSiCorresponde() (llamada desde
+    // los 4 puntos donde se confirma un surtido real) detecte que ESTE
+    // artículo se completó, y recién ahí pasa al siguiente.
+}
+
+// Dispara el siguiente artículo de la secuencia guiada SOLO cuando el que
+// se acaba de completar es justo el que Kokoro está narrando ahora mismo
+// — si el usuario adelanta y completa uno distinto, la secuencia no se
+// mueve sola; sigue esperando a que termine el actual. El delay corto deja
+// que termine de sonar "Artículo completado" antes de narrar el siguiente.
+function _avanzarSecuenciaSiCorresponde(item) {
+    const s = _secuenciaPicking;
+    if (!s.activa || s.index < 0 || s.index >= s.cola.length || !item) return;
+    const actual = s.cola[s.index];
+    const mismoItem = String(actual.co_art || actual.cod) === String(item.co_art || item.cod);
+    if (!mismoItem || !_itemYaCompleto(actual)) return;
+    clearTimeout(s.timer);
+    s.timer = setTimeout(_siguienteEnSecuencia, 1400);
+}
+
+function _itemYaCompleto(item) {
+    const requerida = parseInt(item.pedida ?? item.cantidad ?? 1, 10) || 1;
+    return (parseInt(item.surtido ?? 0, 10) || 0) >= requerida;
+}
+
+// Re-aplica el resalto visual del artículo que Kokoro está narrando tras
+// cada render (renderPickingList reconstruye todo el HTML de la lista en
+// cada escaneo, así que el nodo con la clase vieja deja de existir).
+function _reaplicarResaltoSecuencia() {
+    const s = _secuenciaPicking;
+    if (!s.activa || s.index < 0 || s.index >= s.cola.length) return;
+    const item = s.cola[s.index];
+    const card = document.getElementById(_idTarjetaPicking(item.co_art || item.cod));
+    if (card) card.classList.add('pk-secuencia-activa');
 }
 
 function _actualizarBotonSecuencia() {
@@ -5937,6 +6166,7 @@ function renderPickingList() {
         </div>
     `;
     if (window.lucide) window.lucide.createIcons();
+    _reaplicarResaltoSecuencia();
 }
 
 // ── Escaneo físico global (v4.59 — corrige "no inyecta") ────────────────────
@@ -6234,6 +6464,7 @@ function procesarPickingScan(codigo) {
     const eventoScan = _determinarEventoAudioLocal(item, 1);
     reproducirEventoAudio(eventoScan);
     _notificarEventoVisual(item, eventoScan);
+    _avanzarSecuenciaSiCorresponde(item);
     _toastSku(`✅ Surtido correcto: <b>${escHtml(item.des)}</b> (${item.surtido}/${r.requerida})`, 'ok');
     cerrarModalEscanerSku();
     renderPickingList();
@@ -6342,6 +6573,7 @@ function procesarPicking(codigo) {
             const eventoDig = _determinarEventoAudioLocal(item, 1);
             reproducirEventoAudio(eventoDig);
             _notificarEventoVisual(item, eventoDig);
+            _avanzarSecuenciaSiCorresponde(item);
             alert(`✅ Surtido Correcto:\n${item.des} (${item.surtido}/${r.requerida})`);
         }
         renderPickingList();
@@ -6378,6 +6610,7 @@ function confirmarCantidadManual(cod) {
     const eventoMan = _determinarEventoAudioLocal(item, cant);
     reproducirEventoAudio(eventoMan);
     _notificarEventoVisual(item, eventoMan);
+    _avanzarSecuenciaSiCorresponde(item);
     _toastSku(`✅ Cantidad manual registrada: <b>${escHtml(item.des)}</b> (${item.surtido}/${r.requerida})`, 'ok');
     renderPickingList();
 }
@@ -6415,6 +6648,7 @@ function confirmarCantidadItem(coArt) {
     const eventoItem = _determinarEventoAudioLocal(item, cant);
     reproducirEventoAudio(eventoItem);
     _notificarEventoVisual(item, eventoItem);
+    _avanzarSecuenciaSiCorresponde(item);
     _toastSku(`✅ Cantidad registrada: <b>${escHtml(item.des)}</b> (${item.surtido}/${r.requerida})`, 'ok');
     input.value = '';
     renderPickingList();
@@ -6978,24 +7212,11 @@ async function renderModuloBandeja() {
         </div>
     `;
 
-    // Soporte Responsivo Mobile para Colectores de Datos
-    const styleTag = document.createElement('style');
-    styleTag.innerHTML = `
-        @media(max-width: 768px) {
-            .chat-layout { flex-direction: column !important; }
-            #chat-sidebar-view.hide-mobile { display: none !important; }
-            #chat-main-window { display: none !important; width: 100% !important; }
-            #chat-main-window.show-mobile { display: flex !important; }
-            .responsive-back-btn { display: block !important; }
-        }
-        .theme-bubble-me { background: #dcf8c6 !important; align-self: flex-end !important; margin-left: auto !important; border-radius: 12px 12px 0px 12px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-        .theme-bubble-other { background: white !important; align-self: flex-start !important; margin-right: auto !important; border-radius: 12px 12px 12px 0px !important; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
-        @keyframes typingDot {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-        }
-    `;
-    document.head.appendChild(styleTag);
+    // El CSS responsivo de este módulo (media query móvil, burbujas,
+    // keyframe typingDot) ya vive en el <style> principal del <head> —
+    // antes se armaba e inyectaba acá con un <style> nuevo CADA VEZ que se
+    // abría el módulo (bug real: se acumulaban copias idénticas en el DOM
+    // durante toda la sesión, nunca se limpiaban).
 
     if (window.lucide) window.lucide.createIcons();
     renderChatList();
@@ -7207,6 +7428,15 @@ async function loadMessages() {
         }
 
         const miId = getUsuarioIdActivo();
+        // Perf real (28/08): antes cada mensaje se agregaba con
+        // `container.innerHTML += ...` dentro del forEach — el navegador
+        // reserializa Y reparsea TODO el HTML acumulado en cada vuelta,
+        // no solo el pedazo nuevo (O(n²) en vez de O(n)). Notorio en
+        // celulares con conversaciones largas: cuantos más mensajes, más
+        // lento cada refresco/poll. Ahora se arma un array y se vuelca al
+        // DOM con un solo innerHTML al final — mismo resultado visual,
+        // sin el costo cuadrático.
+        const partesHtml = [];
         messages.forEach(msg => {
             // En chat interno usuario-a-usuario AMBOS lados mandan con
             // remitente='agente' (solo distingue humano vs. cliente externo),
@@ -7245,7 +7475,7 @@ async function loadMessages() {
                 : '';
             const bubbleCursor = msg.tipo === 'imagen' ? 'cursor:pointer;' : '';
 
-            container.innerHTML += `
+            partesHtml.push(`
                 <div class="${bubbleClass}" style="max-width: 75%; padding: 8px 12px; font-size: 13.5px; position:relative; display:flex; flex-direction:column; ${bubbleCursor}"${bubbleClickAttr}>
                     <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:2px;">
                         <span style="font-size: 10px; font-weight: bold; color: ${isMe ? '#166534' : '#1e3a8a'}; text-transform:capitalize;">${escHtml(senderName)}</span>
@@ -7254,10 +7484,11 @@ async function loadMessages() {
                     ${content}
                     ${isMe ? `<div style="display:flex;justify-content:flex-end;margin-top:2px;">${statusIcon}</div>` : ''}
                 </div>
-            `;
+            `);
 
             if (msg.id > lastMsgId) lastMsgId = msg.id;
         });
+        container.innerHTML = partesHtml.join('');
         container.scrollTop = container.scrollHeight;
         if (window.lucide) window.lucide.createIcons();
     } catch (e) {
@@ -7293,8 +7524,13 @@ async function sendMessage(fileData = null, fileType = 'text', event = null) {
     const container = document.getElementById('messages-container');
 
     // Mostrar indicador de escritura si es bot
+    // Perf (31/08): insertAdjacentHTML en vez de innerHTML += — agrega el
+    // HTML nuevo directo sin reparsear todo lo que ya estaba en el
+    // contenedor (mismo problema real que ya se arregló en el loop de
+    // mensajes, acá en una sola llamada pero con el mismo costo por vuelta
+    // conforme crece la conversación).
     if (isBot && container) {
-        container.innerHTML += `
+        container.insertAdjacentHTML('beforeend', `
             <div id="ara-typing-indicator" class="theme-bubble-other" style="max-width: 75%; padding: 10px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px;">
                 <div style="display: flex; gap: 3px;">
                     <span style="width: 6px; height: 6px; background: #764ba2; border-radius: 50%; animation: typingDot 1.4s infinite ease-in-out both;"></span>
@@ -7303,7 +7539,7 @@ async function sendMessage(fileData = null, fileType = 'text', event = null) {
                 </div>
                 <span style="font-size: 11px; color: #64748b;">ARA - Intelligent está escribiendo...</span>
             </div>
-        `;
+        `);
         container.scrollTop = container.scrollHeight;
     }
 
@@ -7644,8 +7880,10 @@ async function skillEnviarComando(text) {
     if (!tool) { startPolling(); return; }
 
     // 3. Burbuja del usuario + indicador de escritura
+    // Perf (31/08): insertAdjacentHTML en vez de innerHTML += (ver misma
+    // nota que en sendMessage) — no reparsea el historial ya renderizado.
     if (container) {
-        container.innerHTML += `
+        container.insertAdjacentHTML('beforeend', `
             <div class="theme-bubble-me" style="max-width:75%; padding:8px 12px; font-size:13.5px; align-self:flex-end; margin-left:auto; border-radius:12px 12px 0 12px; background:#dcf8c6; box-shadow:0 1px 1px rgba(0,0,0,0.1);">
                 <div style="color:#0f172a; word-break:break-word; font-family:monospace; font-size:12px;">${escHtml(text)}</div>
             </div>
@@ -7657,7 +7895,7 @@ async function skillEnviarComando(text) {
                 </div>
                 <span style="font-size: 11px; color: #64748b;">Ejecutando ${escHtml(tool)}...</span>
             </div>
-        `;
+        `);
         container.scrollTop = container.scrollHeight;
     }
 
@@ -7721,7 +7959,7 @@ async function skillEnviarComando(text) {
         const ok = !(data.status === 'error');
         const resultado = skillDesnormalizar(data);
         if (container) {
-            container.innerHTML += skillBurbujaRespuesta(resultado, ok, tool);
+            container.insertAdjacentHTML('beforeend', skillBurbujaRespuesta(resultado, ok, tool));
             container.scrollTop = container.scrollHeight;
         }
 
@@ -7764,7 +8002,7 @@ async function skillEnviarComando(text) {
             ? `Tiempo de ejecución agotado (>${Math.round(TIEMPO_MAX_EJECUCION_MS / 1000)}s).`
             : ('Error de ejecución: ' + (e && e.message ? e.message : String(e)));
         if (container) {
-            container.innerHTML += skillBurbujaRespuesta(mensajeError, false, tool);
+            container.insertAdjacentHTML('beforeend', skillBurbujaRespuesta(mensajeError, false, tool));
             container.scrollTop = container.scrollHeight;
         }
     } finally {
@@ -8320,6 +8558,7 @@ async function renderModuloAtencionCliente() {
                 <div id="ac-active-container" style="display: none; flex-direction: column; height: 100%;">
                     <div style="padding: 12px 20px; background: white; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;">
                         <div style="display:flex; align-items:center; gap:10px;">
+                            <button onclick="acVolverALista()" class="responsive-back-btn" style="background: none; border: none; cursor: pointer; padding: 4px; display: none;"><i data-lucide="arrow-left"></i></button>
                             <div id="ac-header-avatar" style="width: 38px; height: 38px; border-radius: 50%; background: #3b82f6; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;"></div>
                             <div>
                                 <div id="ac-header-name" style="font-weight: 700; font-size: 14px;"></div>
@@ -8440,6 +8679,13 @@ async function acOpenChat(convId, nombreCliente, telefonoCliente, modo) {
     document.getElementById('ac-header-avatar').innerText = (nombreCliente || '?')[0].toUpperCase();
     acActualizarBadgeModo();
 
+    // Mobile (28/08): mismo patrón maestro-detalle que ya usaba la Bandeja
+    // interna — sin esto, en celular la lista y el chat quedaban los dos
+    // apretados lado a lado (el sidebar de 350px fijo no dejaba espacio
+    // real para leer la conversación).
+    document.getElementById('ac-sidebar-view')?.classList.add('hide-mobile');
+    document.getElementById('ac-main-window')?.classList.add('show-mobile');
+
     try {
         await fetch(`${ARA_SERVER}/api/atencion/conversacion/${acActiveChatId}/leer`, { method: 'POST' });
     } catch (e) {}
@@ -8498,28 +8744,41 @@ async function acLoadMessages() {
             return;
         }
 
+        // Perf (28/08): array + un solo innerHTML al final, en vez de
+        // `+=` dentro del forEach (ver misma nota en el loader de la
+        // Bandeja interna — evita el costo O(n²) de reparsear todo el
+        // HTML acumulado en cada mensaje).
+        const partesHtml = [];
         messages.forEach(msg => {
             const isCliente = msg.remitente === 'cliente';
             const isIA = msg.remitente === 'ia';
-            const bubbleClass = isCliente ? "theme-bubble-other" : "theme-bubble-me";
+            // Perceptibilidad (28/08): antes la IA y el agente humano
+            // compartían la MISMA burbuja verde "me" — la única diferencia
+            // era una etiqueta de 10px, fácil de pasar por alto en una
+            // pantalla chica. Ahora la IA tiene su propio tono lila
+            // (.theme-bubble-ia, mismo color de marca que ya se usa para
+            // "IA" en el resto de la app) — se distingue de un vistazo,
+            // sin tener que leer la etiqueta.
+            const bubbleClass = isCliente ? "theme-bubble-other" : (isIA ? "theme-bubble-ia" : "theme-bubble-me");
             const etiqueta = isCliente ? escHtml(acActiveClientName) : (isIA ? '🤖 ARA (IA)' : 'Tú (agente)');
             const statusIcon = isCliente ? '' : (
                 msg.estado === 'leido' ? '<span style="color:#53bdeb;font-size:9px;margin-left:4px;">✓✓</span>'
                 : msg.estado === 'entregado' ? '<span style="color:#8696a0;font-size:9px;margin-left:4px;">✓✓</span>'
                 : '<span style="color:#8696a0;font-size:9px;margin-left:4px;">✓</span>'
             );
-            container.innerHTML += `
+            partesHtml.push(`
                 <div class="${bubbleClass}" style="max-width: 75%; padding: 8px 12px; font-size: 13.5px; align-self: ${isCliente ? 'flex-start' : 'flex-end'};">
                     <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:2px;">
-                        <span style="font-size: 10px; font-weight: bold; color: ${isCliente ? '#1e3a8a' : (isIA ? '#764ba2' : '#166534')};">${etiqueta}</span>
+                        <span style="font-size: 10px; font-weight: bold; color: ${isCliente ? '#1e3a8a' : (isIA ? '#6d28d9' : '#166534')};">${etiqueta}</span>
                         <span style="font-size: 9px; color: #64748b;">${formatChatTime(msg.timestamp)}</span>
                     </div>
                     <div style="color:#0f172a; line-height:1.4; word-break:break-word;">${escHtml(msg.contenido)}</div>
                     ${!isCliente ? `<div style="display:flex;justify-content:flex-end;margin-top:2px;">${statusIcon}</div>` : ''}
                 </div>
-            `;
+            `);
             if (msg.id > acLastMsgId) acLastMsgId = msg.id;
         });
+        container.innerHTML = partesHtml.join('');
         container.scrollTop = container.scrollHeight;
     } catch (e) {
         console.warn("Error cargando mensajes de atención al cliente:", e);
@@ -8553,6 +8812,14 @@ async function acSendMessage() {
     } catch (e) {
         console.warn("Error enviando respuesta de atención al cliente:", e);
     }
+}
+
+function acVolverALista() {
+    // Solo tiene efecto visual en celular (en escritorio ambos paneles ya
+    // se ven siempre) — vuelve a mostrar la lista de conversaciones sin
+    // perder el chat activo, para que reabrirlo no tenga que recargar nada.
+    document.getElementById('ac-sidebar-view')?.classList.remove('hide-mobile');
+    document.getElementById('ac-main-window')?.classList.remove('show-mobile');
 }
 
 function acStopPolling() {
@@ -9535,9 +9802,7 @@ async function aplicarFiltrosHistorial(tipo) {
         params.set('es_admin', esAdmin ? 'true' : 'false');
 
         try {
-            const res = await fetch(`${ARA_SERVER}/api/reportes/trazabilidad?${params}`, {
-                headers: { 'Authorization': `Bearer ${window.araToken || localStorage.getItem('ara_token') || ''}` }
-            });
+            const res = await fetchConSesion(`${ARA_SERVER}/api/reportes/trazabilidad?${params}`);
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const jsonResp = await res.json();
             const movimientos = jsonResp.data || [];
@@ -9598,9 +9863,7 @@ async function aplicarFiltrosHistorial(tipo) {
         params.set('usuario_activo', window.usuarioActivo || '');
         params.set('es_admin', esAdmin ? 'true' : 'false');
 
-        const res = await fetch(`${ARA_SERVER}/api/reportes/discrepancias?${params}`, {
-            headers: { 'Authorization': `Bearer ${window.araToken || localStorage.getItem('ara_token') || ''}` }
-        });
+        const res = await fetchConSesion(`${ARA_SERVER}/api/reportes/discrepancias?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
@@ -10836,90 +11099,192 @@ async function abrirPdfMovimientos() {
 
 function escHtml(t) { if(!t) return ''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
 
+// (28/08) Se eliminó el widget flotante "ARA Assistant" (botón + mini-chat
+// + su feedback de aprobar/error) por no tener uso real — la mensajería de
+// verdad vive en la Bandeja y en ARA Inteligente. toggleChat/sendAraMsg/
+// registerFeedback y sus globals (ultimaPreguntaARA/ultimaRespuestaARA) se
+// borraron con él: nada más en el archivo los usaba.
+
 // =============================================================================
-// ARA Assistant Chat (Floating Window)
+// PWA (28/08) — Service Worker, instalación, notificaciones push, badge del
+// ícono, aviso de sin-conexión, y que el botón/gesto "atrás" de Android
+// cierre los overlays de cámara en vez de sacar al usuario de la app.
 // =============================================================================
-function toggleChat() {
-    const w = document.getElementById('ara-chat-window');
-    const btn = document.getElementById('ara-floating-btn');
-    if (w.style.display === 'flex') {
-        w.style.display = 'none';
-        btn.style.display = 'flex';
-    } else {
-        w.style.display = 'flex';
-        btn.style.display = 'none';
+
+// ── Service Worker ──────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((reg) => console.log('[PWA] Service Worker registrado, scope:', reg.scope))
+            .catch((e) => console.warn('[PWA] No se pudo registrar el Service Worker:', e));
+    });
+}
+
+// ── Botón "Instalar ARA" ────────────────────────────────────────────────
+// Chrome NO muestra su prompt de instalación solo — dispara
+// 'beforeinstallprompt' y espera que la propia página decida cuándo
+// mostrar un botón; sin este listener, "instalar como app" solo se
+// encuentra escarbando el menú de tres puntos del navegador.
+let _pwaEventoInstalacion = null;
+
+window.addEventListener('beforeinstallprompt', (evento) => {
+    evento.preventDefault();
+    _pwaEventoInstalacion = evento;
+    document.getElementById('pwa-instalar-btn')?.classList.add('visible');
+});
+
+async function _pwaInstalar() {
+    if (!_pwaEventoInstalacion) return;
+    _pwaEventoInstalacion.prompt();
+    const { outcome } = await _pwaEventoInstalacion.userChoice;
+    console.log('[PWA] Resultado de instalación:', outcome);
+    _pwaEventoInstalacion = null;
+    document.getElementById('pwa-instalar-btn')?.classList.remove('visible');
+}
+
+window.addEventListener('appinstalled', () => {
+    document.getElementById('pwa-instalar-btn')?.classList.remove('visible');
+    mostrarToast?.('ARA instalada — ya la tenés como app en este dispositivo.');
+});
+
+// ── Notificaciones push ──────────────────────────────────────────────────
+// Requiere gesto real del usuario (por eso es un botón, no algo automático
+// al cargar) — los navegadores bloquean el permiso de Notification si se
+// pide sin interacción. Conectar EVENTOS reales de negocio (qué dispara
+// una notificación) es responsabilidad del backend (ver
+// push_notif.enviar_push_usuario) — esto solo activa la suscripción.
+function _base64UrlABytes(base64url) {
+    const pad = '='.repeat((4 - (base64url.length % 4)) % 4);
+    const base64 = (base64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+async function _pwaActivarNotificaciones() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        mostrarToast?.('Este navegador no soporta notificaciones push.', 4000);
+        return;
+    }
+    try {
+        const permiso = await Notification.requestPermission();
+        if (permiso !== 'granted') {
+            mostrarToast?.('Notificaciones no activadas (permiso denegado).', 4000);
+            return;
+        }
+        const registro = await navigator.serviceWorker.ready;
+        let suscripcion = await registro.pushManager.getSubscription();
+        if (!suscripcion) {
+            const resVapid = await fetch('/api/push/vapid_public_key');
+            const { publicKey } = await resVapid.json();
+            suscripcion = await registro.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: _base64UrlABytes(publicKey),
+            });
+        }
+        // fetchConSesion (definida más arriba) ya sabe agregar el Bearer
+        // real (window.araToken / localStorage 'ara_token') y manejar 401
+        // — mismo helper que usa el resto del frontend, no uno nuevo.
+        await fetchConSesion('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: suscripcion.toJSON() }),
+        });
+        document.getElementById('pwa-notif-btn')?.classList.add('activo');
+        mostrarToast?.('Notificaciones activadas.');
+    } catch (e) {
+        console.warn('[PWA] Error activando notificaciones:', e);
+        mostrarToast?.('No se pudieron activar las notificaciones.', 4000);
     }
 }
 
-let ultimaPreguntaARA = '';
-let ultimaRespuestaARA = '';
+// Si ya había una suscripción activa de una sesión anterior, refleja el
+// botón como "activo" desde el arranque (no hace falta re-suscribir).
+if ('serviceWorker' in navigator && 'PushManager' in window) {
+    document.getElementById('pwa-notif-btn')?.classList.add('visible');
+    navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription()).then((sus) => {
+        if (sus) document.getElementById('pwa-notif-btn')?.classList.add('activo');
+    }).catch(() => {});
+}
 
-async function sendAraMsg() {
-    const input = document.getElementById('chat-msg');
-    const body = document.getElementById('chat-body');
-    const msg = input.value.trim();
-    if (!msg) return;
-    input.value = '';
+// ── Aviso de "sin conexión" ──────────────────────────────────────────────
+function _pwaActualizarBannerConexion() {
+    document.getElementById('banner-sin-conexion')?.classList.toggle('visible', !navigator.onLine);
+}
+window.addEventListener('online', _pwaActualizarBannerConexion);
+window.addEventListener('offline', _pwaActualizarBannerConexion);
+_pwaActualizarBannerConexion();
 
-    // Render user message
-    body.innerHTML += `<div class="msg msg-user">${escHtml(msg)}</div>`;
-    body.scrollTop = body.scrollHeight;
-
-    // Typing indicator
-    body.innerHTML += `<div id="ara-typing" class="msg msg-ara" style="font-style:italic; color:#94a3b8;">ARA está pensando...</div>`;
-    body.scrollTop = body.scrollHeight;
-
-    ultimaPreguntaARA = msg;
-
+// ── Badge del ícono (Badging API) ────────────────────────────────────────
+// Mensajes sin leer de ESTE usuario (Bandeja + Atención al Cliente, ver
+// /api/badge/mensajes_sin_leer). Corregido (28/08): antes mostraba un
+// conteo de notas pendientes del almacén ENTERO bajo el nombre
+// "pendientes" — un usuario vio "70" en el ícono, lo leyó como "70
+// mensajes sin leer" (razonable, es un badge de notificaciones) y no
+// encontró ninguno en el chat. fetchConSesion (no fetch plano) porque el
+// conteo es personal — necesita saber quién pregunta.
+async function _pwaActualizarBadge() {
+    if (!('setAppBadge' in navigator)) return;
     try {
-        const res = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: msg })
-        });
+        const res = await fetchConSesion('/api/badge/mensajes_sin_leer');
         const data = await res.json();
-
-        // Remove typing indicator
-        const typing = document.getElementById('ara-typing');
-        if (typing) typing.remove();
-
-        ultimaRespuestaARA = data.respuesta || 'Sin respuesta.';
-
-        // Render IA response
-        body.innerHTML += `<div class="msg msg-ara">${escHtml(ultimaRespuestaARA)}</div>`;
-
-        // Render feedback buttons
-        body.innerHTML += `
-            <div style="display:flex; gap:6px; align-self:flex-start; margin: 0 0 8px 10px;">
-                <button onclick="registerFeedback(true)" style="background:#22c55e; color:white; border:none; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer;">✅ Aprobar</button>
-                <button onclick="registerFeedback(false)" style="background:#ef4444; color:white; border:none; border-radius:8px; padding:4px 10px; font-size:11px; cursor:pointer;">❌ Error</button>
-            </div>
-        `;
-    } catch (e) {
-        const typing = document.getElementById('ara-typing');
-        if (typing) typing.remove();
-        body.innerHTML += `<div class="msg msg-ara" style="color:red;">Error de conexión: ${e.message}</div>`;
-    }
-    body.scrollTop = body.scrollHeight;
+        const n = Number(data.no_leidos) || 0;
+        if (n > 0) navigator.setAppBadge(n); else navigator.clearAppBadge();
+    } catch (e) { /* sin conexión o sin sesión todavía: se deja el badge como estaba */ }
+}
+if ('setAppBadge' in navigator) {
+    _pwaActualizarBadge();
+    setInterval(_pwaActualizarBadge, 120000); // cada 2 min, no hace falta más seguido
 }
 
-async function registerFeedback(esCorrecta) {
-    if (!ultimaPreguntaARA || !ultimaRespuestaARA) return;
-    try {
-        await fetch('/api/chat/feedback', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pregunta: ultimaPreguntaARA,
-                respuesta_ia: ultimaRespuestaARA,
-                es_correcta: esCorrecta,
-                corregida_por: document.querySelector('.user-name')?.textContent || 'Operador'
-            })
-        });
-    } catch (e) {
-        console.warn('Error registrando feedback:', e);
-    }
+// ── Botón/gesto "atrás" de Android integrado con los overlays de cámara ──
+// Sin esto, una PWA instalada trata "atrás" como si ARA no tuviera
+// pantallas propias: el gesto cierra la app entera (o navega afuera)
+// aunque haya una cámara abierta encima — nada que ver con lo que espera
+// cualquier usuario de una app nativa. Empuja una entrada de historial al
+// abrir un overlay; "atrás" la consume y cierra el overlay en vez de la
+// app. Bandera simple (no pila) porque estos overlays son mutuamente
+// excluyentes en la práctica — nunca hay dos abiertos a la vez.
+let _pwaOverlayConHistorial = false;
+
+function _pwaEnvolverAbrir(nombreFn) {
+    const original = window[nombreFn];
+    if (typeof original !== 'function') return;
+    window[nombreFn] = async function (...args) {
+        const resultado = await original.apply(this, args);
+        _pwaOverlayConHistorial = true;
+        history.pushState({ araOverlay: nombreFn }, '');
+        return resultado;
+    };
 }
+
+function _pwaEnvolverCerrar(nombreFn) {
+    const original = window[nombreFn];
+    if (typeof original !== 'function') return;
+    window[nombreFn] = function (...args) {
+        const resultado = original.apply(this, args);
+        if (_pwaOverlayConHistorial) {
+            _pwaOverlayConHistorial = false;
+            // Consume la entrada que se había apilado al abrir — así un
+            // "atrás" de más no queda pegado sin hacer nada la próxima vez.
+            history.back();
+        }
+        return resultado;
+    };
+}
+
+['abrirCamara', 'abrirCamaraNota', 'abrirCamaraEscanerNota'].forEach(_pwaEnvolverAbrir);
+['cerrarCamara', 'cerrarCamaraNota', 'cerrarCamaraEscanerNota'].forEach(_pwaEnvolverCerrar);
+
+window.addEventListener('popstate', () => {
+    if (!_pwaOverlayConHistorial) return; // este popstate no era de un overlay nuestro
+    _pwaOverlayConHistorial = false; // bajado ANTES de cerrar: evita que _pwaEnvolverCerrar dispare otro history.back()
+    const overlayCamara = document.getElementById('camera-overlay');
+    const overlayNota = document.getElementById('nota-camera-overlay');
+    const overlayEscanerNota = document.getElementById('modal-camara-nota');
+    if (overlayCamara && getComputedStyle(overlayCamara).display !== 'none') cerrarCamara();
+    if (overlayNota && getComputedStyle(overlayNota).display !== 'none') cerrarCamaraNota();
+    if (overlayEscanerNota) cerrarCamaraEscanerNota();
+});
 
     </script>
 

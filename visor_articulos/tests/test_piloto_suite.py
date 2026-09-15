@@ -303,6 +303,7 @@ def test_router_nim_prioritario(tmp_path, monkeypatch):
         },
     )
     visor_routes.DB_PATH = str(tmp_path / "visor_test_nim.db")  # no debe usarse
+    monkeypatch.setattr(visor_routes, "API_KEY", "test-key")
 
     motor = MotorBusquedaVisual(InMemoryVectorAdapter())
     motor._estado_ingesta = {"origen": "test", "productos_indexados": 0}
@@ -312,6 +313,7 @@ def test_router_nim_prioritario(tmp_path, monkeypatch):
         "/api/visor/buscar",
         data={"image": (io.BytesIO(b"\xff\xd8\xff"), "nim.jpg")},
         content_type="multipart/form-data",
+        headers={"X-API-Key": "test-key"},
     )
     data = r.get_json()
     assert r.status_code == 200
@@ -362,6 +364,7 @@ def app_router(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
     monkeypatch.setattr(visor_routes, "DB_PATH", db_tmp)
+    monkeypatch.setattr(visor_routes, "API_KEY", "test-key")
     visor_routes._FICHAS_CACHE.clear()
 
     indice = InMemoryVectorAdapter(cache_dir=str(tmp_path / "cache"))
@@ -376,7 +379,7 @@ def app_router(tmp_path, monkeypatch):
 
 
 def test_router_registra_endpoints(app_router):
-    r = app_router.get("/api/visor/estado")
+    r = app_router.get("/api/visor/estado", headers={"X-API-Key": "test-key"})
     assert r.status_code == 200
     assert r.get_json()["productos_indexados"] == 44
 
@@ -389,6 +392,7 @@ def test_router_buscar_contrato_completo(app_router):
         "/api/visor/buscar",
         data={"image": (io.BytesIO(imagen), "captura.jpg")},
         content_type="multipart/form-data",
+        headers={"X-API-Key": "test-key"},
     )
     assert r.status_code == 200
     data = r.get_json()
@@ -407,14 +411,14 @@ def test_router_buscar_por_base64(app_router):
     import base64
 
     b64 = base64.b64encode(producto_a_bytes(CATALOGO[1], "perfecto")).decode()
-    r = app_router.post("/api/visor/buscar", json={"image": b64})
+    r = app_router.post("/api/visor/buscar", json={"image": b64}, headers={"X-API-Key": "test-key"})
     assert r.status_code == 200
     data = r.get_json()
     assert data["productos_encontrados"][0]["codigo"] == CATALOGO[1].co_art
 
 
 def test_router_error_sin_imagen(app_router):
-    r = app_router.post("/api/visor/buscar", json={})
+    r = app_router.post("/api/visor/buscar", json={}, headers={"X-API-Key": "test-key"})
     assert r.status_code == 400
     assert r.get_json()["status"] == "error"
 
@@ -454,6 +458,7 @@ def test_router_enriquece_stock_y_pendiente(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
     visor_routes.DB_PATH = db_tmp
+    visor_routes.API_KEY = "test-key"
     visor_routes._FICHAS_CACHE.clear()
 
     indice = InMemoryVectorAdapter(cache_dir=str(tmp_path / "cache2"))
@@ -471,6 +476,7 @@ def test_router_enriquece_stock_y_pendiente(tmp_path, monkeypatch):
         "/api/visor/buscar",
         data={"image": (io.BytesIO(producto_a_bytes(p1, "perfecto")), "c.jpg")},
         content_type="multipart/form-data",
+        headers={"X-API-Key": "test-key"},
     )
     ficha = r.get_json()["productos_encontrados"][0]
     assert ficha["stock_maestro"] == 10
@@ -489,12 +495,15 @@ def test_router_sin_catalogo_responde_503(monkeypatch):
     from visor_articulos.application import visor_routes
 
     _mock_nim(monkeypatch, visor_routes)
+    monkeypatch.setattr(visor_routes, "API_KEY", "test-key")
 
     motor = MotorBusquedaVisual(InMemoryVectorAdapter())
     motor._estado_ingesta = {"origen": "vacio", "productos_indexados": 0}
     app = Flask(__name__)
     visor_routes.register_visor_routes(app, motor=motor)
-    r = app.test_client().post("/api/visor/buscar", json={"image": "AAAA"})
+    r = app.test_client().post(
+        "/api/visor/buscar", json={"image": "AAAA"}, headers={"X-API-Key": "test-key"}
+    )
     assert r.status_code == 503
     assert r.get_json()["motor"] == "visor_hibrido"
 

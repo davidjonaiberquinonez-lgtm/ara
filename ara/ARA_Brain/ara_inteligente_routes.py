@@ -13,17 +13,52 @@ Reutiliza el mismo motor que ya usa el chat interno de ARA
     (nombre de la tool si fue una skill, o el modelo de IA/fallback SQL).
 """
 import os
+import re
 import sqlite3
 import time
 import uuid
 from datetime import datetime
 
+import requests
 from flask import jsonify, render_template, request
 from werkzeug.utils import secure_filename
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get("ARA_DB_PATH", os.path.join(_BASE_DIR, "data", "proyecto_ara.db"))
 _ADJUNTOS_DIR = os.path.join(_BASE_DIR, "data", "adjuntos_ocr")
+
+# ARA Coder (microservicio aparte, puerto 8010, mismo host que ara_server.py —
+# ver v4.61). Antes el navegador le hablaba DIRECTO a "http://localhost:8010",
+# que solo funcionaba si quien probaba estaba físicamente en la máquina del
+# servidor: "localhost" en el navegador de un usuario remoto (CRM) es SU
+# PROPIA máquina, nunca la del server — de ahí "Failed to fetch" para
+# cualquiera que no fuera el dev en la máquina local. Este proxy corre en el
+# mismo proceso/host que ARA Coder, así que sí puede alcanzarlo de verdad.
+ARA_CODER_URL_INTERNO = os.environ.get("ARA_CODER_INTERNAL_URL", "http://127.0.0.1:8010")
+
+# NOTA (02/09): Qwen2.5-Coder-32B-Instruct de la GDX se conecta DENTRO de
+# ARA Coder (ver C:\ara_coder_service\core\agent_loop.py::llamar_llm, ya
+# configurado como proveedor primario vía GB10_INFERENCE_URL), no acá. Hubo
+# una versión previa de este archivo con un camino paralelo directo a la GDX
+# (login + proxy propio, bypasseando el loop de tools/agente) — se sacó a
+# pedido del usuario: Qwen2.5-Coder debe responder siempre pasando por el
+# ciclo ReAct de ARA Coder (tools reales, memoria de consultas, síntesis de
+# skills), nunca como un chat plano aparte.
+
+_RE_PREFIJO_BOT = re.compile(r"^🤖 \*[^*]+\*:\n?")
+
+
+def _limpiar_para_historial(contenido: str) -> str:
+    """Bug real detectado en vivo (02/09, al probar el fix de memoria): las
+    respuestas del bot se guardan con un prefijo tipo '🤖 *ARA - Intelligent*:'
+    ya pegado al texto — al pasar ese mismo texto de vuelta como historial,
+    el LLM empezaba a IMITAR ese prefijo en su propia respuesta nueva, que
+    ara_inteligente_routes.py le agrega OTRA VEZ encima → quedaba duplicado
+    ('🤖 *ARA - Intelligent*:\\n🤖 *ARA - Intelligent*:\\n...'). Se le manda al
+    modelo el texto limpio, sin la decoración de UI que no es parte real de
+    la conversación."""
+    return _RE_PREFIJO_BOT.sub("", contenido or "", count=1)
+
 
 MAX_ANCLADOS = 3
 
@@ -38,6 +73,10 @@ def _conectar() -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=5000;")
+    # Bug real: el esquema declara "ON DELETE CASCADE" en ara_inteligente_mensajes
+    # pero SQLite NUNCA enforça foreign keys salvo que se active por conexión —
+    # sin esto, borrar un chat dejaba sus mensajes huérfanos en la tabla.
+    conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
 
@@ -94,6 +133,26 @@ def register_ara_inteligente_routes(app):
     @app.route("/ara-inteligente")
     def ara_inteligente_pagina():
         return render_template("ara_inteligente.html")
+
+    @app.route("/api/ara_inteligente/ara_coder_proxy", methods=["POST"])
+    def ara_inteligente_ara_coder_proxy():
+        data = request.get_json(silent=True) or {}
+        try:
+            # Bug real (visto repetido en ara_inteligente_mensajes: varios
+            # "Read timed out" con timeout=120/180/220 subido a mano cada vez
+            # sin arreglar la causa real): ara_coder_service::config.py tiene
+            # su PROPIO timeout de 600s para la llamada a la GDX
+            # (GB10_TIMEOUT_S) — este proxy se rendía a los 220s, ANTES de
+            # que ARA Coder pudiera terminar una consulta legítima que
+            # tardara más. El timeout de acá tiene que ser mayor al de
+            # adentro, con margen.
+            r = requests.post(f"{ARA_CODER_URL_INTERNO}/api/coder/chat", json=data, timeout=650)
+        except requests.exceptions.RequestException as e:
+            return jsonify({
+                "status": "error",
+                "mensaje": f"ARA Coder no disponible en {ARA_CODER_URL_INTERNO}: {e}",
+            }), 502
+        return (r.content, r.status_code, {"Content-Type": "application/json"})
 
     # ── Chats ────────────────────────────────────────────────────────────
     @app.route("/api/ara_inteligente/chats", methods=["GET"])
@@ -160,12 +219,29 @@ def register_ara_inteligente_routes(app):
 
     @app.route("/api/ara_inteligente/chats/<int:chat_id>", methods=["DELETE"])
     def ara_inteligente_eliminar_chat(chat_id: int):
+        # Bug real: antes borraba por id sin verificar dueño ni filas
+        # afectadas — cualquiera podía borrar el chat de cualquier otro
+        # usuario, y si el chat_id no calzaba (p.ej. tras un F5 con lista
+        # desincronizada) igual respondía "success" sin borrar nada, así que
+        # el chat "reaparecía" al recargar sin ningún error visible.
+        usuario_id = (request.args.get("usuario_id") or "").strip()
+        if not usuario_id:
+            return jsonify({"status": "error", "mensaje": "Falta usuario_id"}), 400
         conn = _conectar()
         try:
-            conn.execute("DELETE FROM ara_inteligente_chats WHERE id = ?", (chat_id,))
+            cur = conn.execute(
+                "DELETE FROM ara_inteligente_chats WHERE id = ? AND usuario_id = ?",
+                (chat_id, usuario_id),
+            )
             conn.commit()
+            borrado = cur.rowcount > 0
         finally:
             conn.close()
+        if not borrado:
+            return jsonify({
+                "status": "error",
+                "mensaje": "Chat no encontrado o no pertenece a este usuario.",
+            }), 404
         return jsonify({"status": "success"})
 
     @app.route("/api/ara_inteligente/chats/<int:chat_id>/mensajes", methods=["GET"])
@@ -192,11 +268,38 @@ def register_ara_inteligente_routes(app):
         if not chat_id:
             return jsonify({"status": "error", "mensaje": "Falta chat_id"}), 400
 
+        # Historial REAL de este chat (bug real, 02/09: antes cada pregunta
+        # se mandaba SOLA al LLM — "sí, esa misma" después de una respuesta
+        # anterior no tenía forma de saber a qué se refería "esa misma",
+        # porque el turno anterior nunca se le pasaba). Se limita a los
+        # últimos 12 mensajes (6 idas y vueltas) para no inflar el contexto
+        # sin límite en chats largos.
+        historial_mensajes = []
+        try:
+            conn_hist = _conectar()
+            try:
+                filas_previas = conn_hist.execute(
+                    "SELECT rol, contenido FROM ara_inteligente_mensajes WHERE chat_id = ? ORDER BY id DESC LIMIT 12",
+                    (chat_id,),
+                ).fetchall()
+            finally:
+                conn_hist.close()
+            for fila in reversed(filas_previas):
+                contenido = fila["contenido"]
+                if fila["rol"] != "usuario":
+                    contenido = _limpiar_para_historial(contenido)
+                historial_mensajes.append({
+                    "role": "user" if fila["rol"] == "usuario" else "assistant",
+                    "content": contenido,
+                })
+        except Exception as e:
+            print(f"[ARA-Inteligente] No se pudo leer el historial previo: {e}")
+
         t0 = time.perf_counter()
         modelo = "desconocido"
         try:
             from chat_routes import _procesar_mensaje_ara_bot  # import local: evita ciclo
-            resultado = _procesar_mensaje_ara_bot(pregunta)
+            resultado = _procesar_mensaje_ara_bot(pregunta, historial=historial_mensajes)
             respuesta = (
                 resultado.get("contenido", "")
                 if isinstance(resultado, dict)

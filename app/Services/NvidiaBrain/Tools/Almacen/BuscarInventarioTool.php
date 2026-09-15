@@ -117,6 +117,21 @@ final class BuscarInventarioTool implements AgentToolInterface
         $q      = trim((string) ($arguments['q'] ?? ''));
         $coLin  = trim((string) ($arguments['co_lin'] ?? ''));
         $coSubl = trim((string) ($arguments['co_subl'] ?? ''));
+
+        // Bug real (visto en ara_inteligente_mensajes: "[22001] Datos tipo
+        // String, se truncarán por la derecha" desde este mismo tool) — el
+        // LLM a veces manda un parámetro de búsqueda larguísimo (repite el
+        // pedido del usuario entero en vez de solo el término), y el driver
+        // ODBC infiere el ancho del parámetro por la columna destino
+        // (co_art/nombre suelen ser CHAR/VARCHAR cortos en Profit) y tira
+        // error en vez de simplemente no encontrar nada. Cortamos ANTES de
+        // que llegue al driver — 50 caracteres es de sobra para cualquier
+        // nombre de producto o código real.
+        $busqueda = mb_substr($busqueda, 0, 50);
+        $coArt    = mb_substr($coArt, 0, 50);
+        $q        = mb_substr($q, 0, 50);
+        $coLin    = mb_substr($coLin, 0, 50);
+        $coSubl   = mb_substr($coSubl, 0, 50);
         $soloDisponibles = (bool) ($arguments['solo_disponibles'] ?? false);
 
         if ($busqueda === '' && $coArt === '' && $q === '' && $coLin === '' && $coSubl === '') {

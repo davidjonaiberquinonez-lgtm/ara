@@ -31,8 +31,8 @@ final class HermesChatTool implements AgentToolInterface
     /** HERMES_HOME por defecto (Windows, instalador oficial). */
     private const HERMES_HOME_DEFAULT = 'C:\Users\Personal\AppData\Local\hermes';
 
-    private const TIMEOUT_DEFAULT_S = 300;
-    private const TIMEOUT_MAX_S     = 600;
+    private const TIMEOUT_DEFAULT_S = 600;
+    private const TIMEOUT_MAX_S     = 1800;
 
     /**
      * cwd aislado del subproceso: Hermes restaura sesiones por cwd y las
@@ -178,7 +178,7 @@ MD;
                 ],
                 'timeout_s' => [
                     'type'        => 'integer',
-                    'description' => 'Timeout en segundos (default 240, tope 300).',
+                    'description' => 'Timeout en segundos (default 600, tope 1800).',
                 ],
             ],
             'required' => ['mensaje'],

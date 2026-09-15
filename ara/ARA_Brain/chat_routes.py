@@ -24,6 +24,8 @@ from threading import Lock
 
 from flask import request, jsonify, g, Response
 
+import push_notif
+
 
 # =============================================================================
 # CONFIGURACIÓN DE BASE DE DATOS
@@ -43,7 +45,29 @@ ARA_BOT_NOMBRE   = 'ARA - Intelligent'
 # NVIDIA NIM (Cloud) — key heredada + pool VERIFICADO del visor (ara_vision)
 NVIDIA_API_KEY = "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"
 NVIDIA_NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NVIDIA_MODEL    = "meta/llama-3.1-8b-instruct"
+# Bug real detectado en vivo (26/08): "meta/llama-3.1-8b-instruct" devolvía
+# HTTP 410 (Gone) en las 6 API keys del pool. Se probó cambiar al modelo
+# que ARA Coder tenía documentado como funcionando (llama-3.1-70b-instruct)
+# y TAMBIÉN dio 410 — mensaje real de NVIDIA: "The model
+# 'meta/llama-3.1-70b-instruct' has reached its end of life on
+# 2026-08-26T09:00:00Z and is no longer available." NVIDIA dio de baja
+# ambos modelos HOY MISMO, a media sesión — no es bug de código, es un
+# proveedor externo. El modelo de respaldo por NIM (deepseek-v4-flash vía
+# integrate.api.nvidia.com) también cuelga (25s timeout, problema ya
+# documentado desde el 24/08 en ARA Coder). Se deja 70b configurado (por si
+# NVIDIA lo reactiva o agrega uno nuevo) pero el pool falla rápido ahora
+# (~2.5s las 6 keys) y cae al respaldo real de abajo.
+NVIDIA_MODEL    = "meta/llama-3.1-70b-instruct"
+
+# DeepSeek API oficial directa (platform.deepseek.com, NO por el gateway de
+# NIM que cuelga) — mismo mecanismo y misma cuenta que ya usa ARA Coder
+# (C:\ara_coder_service\config.py), confirmada con saldo y respondiendo en
+# vivo hoy (26/08, ~1-2s reales). Se agrega como segundo intento, antes de
+# Ollama local (phi3, mucho más débil) — para que "Automático" tenga un
+# modelo capaz de verdad mientras NIM siga muerto.
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+DEEPSEEK_URL = "https://api.deepseek.com/chat/completions"
+DEEPSEEK_MODEL = "deepseek-chat"
 
 # Ollama local (fallback si NVIDIA NIM no está disponible)
 OLLAMA_URL       = "http://127.0.0.1:11434/api/generate"
@@ -53,6 +77,13 @@ def _get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # Fix real (31/08): sin esto, busy_timeout queda en el default de
+    # SQLite (0ms) — bajo escritura concurrente real de otros módulos que
+    # escriben el MISMO archivo (visor, notas, rutas), esta conexión podía
+    # tirar "database is locked" de una en vez de esperar. Mismo valor que
+    # ya usa get_db_connection() en ara_server.py (ara_server.py:423) —
+    # atencion_cliente_routes.py hereda el fix gratis al reusar este _get_db.
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -451,9 +482,17 @@ def _consultar_metricas_globales() -> str:
         conn.close()
 
 
-def _llamar_nim_ara_bot(system_ctx: str, user_msg: str, timeout: int = 10) -> str:
+def _llamar_nim_ara_bot(system_ctx: str, user_msg: str, historial_mensajes: list = None, timeout: int = 10) -> str:
     """Llama a NVIDIA NIM (cloud) con API compatible OpenAI.
-    Retorna la respuesta textual o None si falla."""
+    Retorna la respuesta textual o None si falla.
+
+    `historial_mensajes` (opcional): turnos previos de ESTA conversación
+    ([{"role": "user"/"assistant", "content": ...}], más viejo primero) —
+    bug real reportado por el usuario (02/09): sin esto, cada pregunta se
+    mandaba SOLA (solo system+pregunta actual), así que un "sí, esa misma"
+    después de una respuesta anterior no tenía forma de saber a qué se
+    refería "esa misma". Se inserta ENTRE el system prompt y la pregunta
+    actual, nunca reemplaza a ninguno de los dos."""
     def _keys_pool():
         try:
             import ara_vision
@@ -474,12 +513,13 @@ def _llamar_nim_ara_bot(system_ctx: str, user_msg: str, timeout: int = 10) -> st
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
+        mensajes = [{"role": "system", "content": system_ctx}]
+        if historial_mensajes:
+            mensajes.extend(historial_mensajes)
+        mensajes.append({"role": "user", "content": user_msg})
         payload = {
             "model": NVIDIA_MODEL,
-            "messages": [
-                {"role": "system", "content": system_ctx},
-                {"role": "user", "content": user_msg}
-            ],
+            "messages": mensajes,
             "temperature": 0.1,
             "max_tokens": 400,
             "stream": False
@@ -496,6 +536,42 @@ def _llamar_nim_ara_bot(system_ctx: str, user_msg: str, timeout: int = 10) -> st
             print(f"🔴 [NVIDIA NIM ERROR]: {e}")
         except Exception as e:
             print(f"[ARA Bot] Error inesperado en NVIDIA NIM: {e}")
+    return None
+
+
+def _llamar_deepseek_para_bot(system_ctx: str, user_msg: str, historial_mensajes: list = None, timeout: int = 25) -> str:
+    """DeepSeek API oficial directa — respaldo real mientras NIM esté
+    muerto (26/08, ver nota junto a NVIDIA_MODEL). Formato OpenAI-compatible,
+    misma forma que NIM. `historial_mensajes`: ver docstring de
+    _llamar_nim_ara_bot — mismo criterio, mismo bug real corregido."""
+    if not DEEPSEEK_API_KEY:
+        return None
+    try:
+        mensajes = [{"role": "system", "content": system_ctx}]
+        if historial_mensajes:
+            mensajes.extend(historial_mensajes)
+        mensajes.append({"role": "user", "content": user_msg})
+        payload = {
+            "model": DEEPSEEK_MODEL,
+            "messages": mensajes,
+            "temperature": 0.1,
+            "max_tokens": 400,
+        }
+        resp = requests.post(
+            DEEPSEEK_URL,
+            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"].strip()
+        print(f"[ARA Bot] DeepSeek respondió HTTP {resp.status_code}: {resp.text[:200]}")
+    except requests.exceptions.Timeout:
+        print("⚠️ [DEEPSEEK TIMEOUT]: La API tardó más de 25s.")
+    except requests.exceptions.RequestException as e:
+        print(f"🔴 [DEEPSEEK ERROR]: {e}")
+    except Exception as e:
+        print(f"[ARA Bot] Error inesperado en DeepSeek: {e}")
     return None
 
 
@@ -646,6 +722,209 @@ def _extraer_termino_busqueda(texto: str) -> str:
             break
     t = re.sub(r'\s*\b(?:' + '|'.join(_SUFIJOS_INVENTARIO) + r')\s*$', '', t)
     return t.strip()[:60]
+
+
+# ── Skills auto-generadas por ARA Coder (v4.61, servicio aparte, mismo
+# host, puerto 8010) — catálogo dinámico, resuelve de raíz el bug real de
+# v4.67 (una skill nueva quedaba invisible para 'Automático' hasta agregar
+# a mano una regla acá). Cada skill nueva ya guarda sus propias
+# 'palabras_activacion' (v4.68, agent_loop.py::_pedir_palabras_activacion) —
+# _detectar_intencion_skill() las consulta como ÚLTIMO recurso, después de
+# agotar las reglas fijas de arriba, para no arriesgar que una palabra de
+# activación mal elegida por el LLM le gane a una regla ya probada. Solo se
+# usan skills con 'aprobada: true' (aprobación manual, /api/skills/approve
+# de ARA Coder) — mismo criterio de v4.63: ningún otro módulo debe confiar
+# en una skill sin revisar.
+_RUTA_CATALOGO_ARA_CODER = os.environ.get(
+    "ARA_CODER_CATALOGO_PATH",
+    r"C:\ara_coder_service\generated_skills\catalog.json",
+)
+
+
+def _cargar_catalogo_ara_coder() -> list:
+    """Lectura best-effort: si ARA Coder nunca corrió o el archivo no
+    existe, no rompe nada — simplemente no hay fallback dinámico."""
+    try:
+        with open(_RUTA_CATALOGO_ARA_CODER, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return []
+
+
+# Identificador alfanumérico real (ej. FAR01680, MD04668) o número puro
+# (ej. 72160754). Bug real (26/08, "facturas de cliente FAR01680"): el
+# regex viejo (\d{4,10}) exige SOLO dígitos — "FAR01680" nunca calzaba
+# porque no hay límite de palabra entre la letra y el dígito, así que
+# ningún código con prefijo de letras se detectaba jamás.
+_RE_IDENTIFICADOR = re.compile(r'\b([A-Za-z]{1,6}\d{3,10}|\d{4,10})\b')
+
+# Prefijo corto en frases tipo "que empiecen con 72 millones" / "empieza con
+# 72" (28/08): _RE_IDENTIFICADOR exige 4+ dígitos a propósito (para no
+# dispararse con cualquier número corto suelto del mensaje) — un prefijo de
+# 1-3 dígitos como "72" jamás calza ahí. Este patrón es DELIBERADAMENTE más
+# angosto: solo dispara pegado a la frase "empiez* con", nunca con un número
+# corto aislado en cualquier otra parte del mensaje — así no compite en
+# alcance con _RE_IDENTIFICADOR ni arriesga disparar una skill por un número
+# random. Se usa SOLO como respaldo para parámetros like_sufijo (valor + '%'
+# = "empieza con"), nunca para like_prefijo ('%' + valor = "termina en").
+_RE_PREFIJO_EMPIEZA_CON = re.compile(r'\bempiez\w*\s+con\s+(\d{1,10})\b', re.IGNORECASE)
+
+
+def _extraer_prefijo_variable(t: str, param: dict):
+    """Extrae el valor real para un parámetro VARIABLE (like_prefijo/
+    like_sufijo) del mensaje: primero el identificador general, y si el
+    parámetro es un prefijo (like_sufijo) y no hubo match, intenta la frase
+    corta 'empiez* con N'. Nunca reusa `valor_original` acá — sería mentir
+    con el dato de otra consulta."""
+    m = _RE_IDENTIFICADOR.search(t)
+    if m:
+        return m.group(1)
+    if param.get('like_sufijo'):
+        m = _RE_PREFIJO_EMPIEZA_CON.search(t)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _normalizar_singular(palabra: str) -> str:
+    """Quita una 's' final simple (heurística liviana, no gramática real) —
+    'facturas' → 'factura'. Palabras cortas (<=4) se dejan intactas para no
+    romper 'mas'/'dos'/'tres' ni similares."""
+    if len(palabra) > 4 and palabra.endswith('s'):
+        return palabra[:-1]
+    return palabra
+
+
+def _tiene_activacion(t: str, palabras_activacion: list) -> bool:
+    """Como _tiene(), pero tolera singular/plural palabra por palabra sin
+    tocar _tiene()/_raiz() global (esas ya están probadas por las reglas
+    fijas de arriba — cualquier cambio ahí arriesga romperlas). Bug real
+    (26/08): las frases que arma el LLM salen casi siempre en plural
+    ('facturas de cliente'), y _tiene() exige la frase literal completa —
+    'la ultima factura' (singular) del usuario nunca calzaba. Cada palabra
+    de la frase se reduce a su raíz singular (más corta, así el \\w* de
+    _raiz() se estira para cubrir plural o singular real) manteniendo el
+    ORDEN de la frase — no se dispersa a bag-of-words.
+
+    Bug real #2 (26/08, "nota de entrega de esta factura X" contra la frase
+    'nota de entrega'): las palabras cortas (ej. 'de') se descartan al
+    armar el patrón, pero el conector entre palabras exigía adyacencia
+    exacta (\\s+) — 'nota' pegado a 'entrega' sin hueco. El mensaje real
+    SÍ tiene 'de' en el medio (la palabra que se descartó), así que nunca
+    calzaba. El conector ahora tolera hasta 3 palabras de relleno entre
+    cada palabra significativa (cubre tanto la palabra corta descartada
+    como inserciones reales del usuario, ej. 'de ESTA factura').
+
+    Bug real #3 (28/08, "cuantas notas de la sede de bqto estan ya
+    embaladas son todas las notas de hoy que empiezan con 72 millones"):
+    esta MISMA frase, la que generó la skill originalmente, no volvía a
+    activarla — entre 'notas' y 'embaladas' el mensaje real tiene 7
+    palabras de relleno ('de la sede de bqto estan ya'), muy por encima
+    del tope de 3. Mensajes reales largos/enredados meten más relleno del
+    previsto. Se sube el tope a 10 (sigue exigiendo TODAS las palabras
+    significativas, EN ORDEN — no se pasa a bag-of-words, eso ya se
+    decidió explícitamente que no) — cubre este caso real con margen sin
+    aflojar la exigencia de orden que evita falsos positivos."""
+    conector = r'(?:\s+\S+){0,10}?\s+'
+    for frase in palabras_activacion:
+        palabras = [p for p in frase.split() if len(p) > 2]
+        if not palabras:
+            continue
+        patron = conector.join(re.escape(_normalizar_singular(p)) + r'\w*' for p in palabras)
+        if re.search(r'\b' + patron + r'\b', t, re.IGNORECASE):
+            return True
+    return False
+
+
+def _detectar_intencion_skill_autogenerada(t: str):
+    """Revisa el catálogo real de skills sintetizadas por ARA Coder. Solo
+    dispara cuando puede extraer un identificador con confianza (mismo
+    criterio que el resto de esta función: mejor no disparar la skill que
+    dispararla con datos incompletos) — 0 parámetros dispara directo, 1
+    parámetro exige encontrar un identificador real en el mensaje, 2+
+    parámetros solo dispara si TODOS comparten el mismo valor_original
+    (mismo dato repetido en varias columnas vía OR, no N datos distintos);
+    en cualquier otro caso de 2+ parámetros se descarta."""
+    catalogo = _cargar_catalogo_ara_coder()
+    for entrada in catalogo:
+        if not entrada.get("aprobada"):
+            continue
+        palabras = entrada.get("palabras_activacion") or []
+        if not palabras or not _tiene_activacion(t, palabras):
+            continue
+        parametros = entrada.get("parametros") or []
+        nombre_funcion = entrada.get("nombre_funcion")
+        if not nombre_funcion:
+            continue
+        if len(parametros) == 0:
+            return {'skill': nombre_funcion, 'arguments': {}}
+        if len(parametros) == 1:
+            param = parametros[0]
+            valor_extraido = _extraer_prefijo_variable(t, param)
+            if valor_extraido:
+                return {'skill': nombre_funcion, 'arguments': {param['nombre']: valor_extraido}}
+            # Bug real (26/08, "facturas de cliente FAR01680" devolvió la
+            # factura de FAR01361 — el cliente que originó la skill, no el
+            # pedido): un parámetro de un LIKE es una búsqueda real que el
+            # usuario nombra cada vez — jamás reusar el valor de
+            # entrenamiento ahí, sería mentir con datos de otra entidad.
+            # El respaldo de valor_original queda SOLO para columnas de
+            # igualdad (flags/estados fijos, ej. inactivo=1), donde
+            # reusarlo es correcto porque define QUÉ ES la skill.
+            if not (param.get('like_prefijo') or param.get('like_sufijo')):
+                valor_original = param.get('valor_original')
+                if valor_original is not None:
+                    return {'skill': nombre_funcion, 'arguments': {param['nombre']: valor_original}}
+            continue
+        # 2+ parámetros: en general no hay forma confiable de completarlos
+        # todos desde un solo mensaje corto — pero hay un caso real y común
+        # que SÍ es seguro: cuando la consulta original busca el MISMO
+        # valor en varias columnas con OR (ej. "id = 22 OR numero = '22'",
+        # buscar por id o por código indistintamente). Ahí los N parámetros
+        # comparten el mismo valor_original — no son N datos distintos que
+        # el usuario tendría que dar, es UN dato repetido. Bug real (26/08,
+        # "buscar operador 22" tras generar BuscarOperadorTool con params
+        # id+numero): la skill nunca disparaba en Automático pese a tener
+        # palabras_activacion exactas, porque esta función cortaba en seco
+        # ante cualquier skill de 2+ parámetros sin distinguir este caso.
+        valores_originales = {p.get('valor_original') for p in parametros}
+        if len(valores_originales) == 1 and not any(
+            p.get('like_prefijo') or p.get('like_sufijo') for p in parametros
+        ):
+            m = _RE_IDENTIFICADOR.search(t)
+            if m:
+                valor = m.group(1)
+                return {'skill': nombre_funcion, 'arguments': {p['nombre']: valor for p in parametros}}
+            valor_original = next(iter(valores_originales))
+            if valor_original is not None:
+                return {'skill': nombre_funcion, 'arguments': {p['nombre']: valor_original for p in parametros}}
+            continue
+
+        # Caso mixto (28/08): parámetros FIJOS (sin like_prefijo/like_sufijo —
+        # flags/estados que definen QUÉ ES la skill, ej. verifi_emb =
+        # 'VERIFICADA') + UN solo parámetro VARIABLE (con like_prefijo o
+        # like_sufijo — la búsqueda real que el usuario da cada vez, ej. el
+        # prefijo de nota). Bug real (28/08, "ContadorNotasEmbaladas": cd_barr
+        # LIKE '72%' + verifi_emb='VERIFICADA' fijo): como los 2 valores de
+        # entrenamiento eran distintos entre sí, el chequeo de "mismo valor"
+        # de arriba nunca aplicaba y esta función se rendía siempre — el
+        # usuario preguntaba lo mismo y terminaba generando una skill
+        # duplicada (ContadorNotasEmbaladas2Tool.php) en vez de reusar la que
+        # ya existía. Los fijos se reusan tal cual (misma razón que el caso
+        # de 1 parámetro de arriba: un flag/estado fijo define qué es la
+        # skill, no es un dato que el usuario deba repetir); el variable se
+        # extrae fresco del mensaje — nunca se reusa un valor de
+        # entrenamiento en el parámetro de búsqueda real.
+        variables = [p for p in parametros if p.get('like_prefijo') or p.get('like_sufijo')]
+        fijos = [p for p in parametros if not (p.get('like_prefijo') or p.get('like_sufijo'))]
+        if len(variables) == 1 and fijos:
+            valor_extraido = _extraer_prefijo_variable(t, variables[0])
+            if valor_extraido:
+                argumentos = {p['nombre']: p.get('valor_original') for p in fijos}
+                argumentos[variables[0]['nombre']] = valor_extraido
+                if all(v is not None for v in argumentos.values()):
+                    return {'skill': nombre_funcion, 'arguments': argumentos}
+    return None
 
 
 def _detectar_intencion_skill(mensaje: str):
@@ -830,8 +1109,18 @@ def _detectar_intencion_skill(mensaje: str):
               'dejaron de comprar', 'no estan comprando', 'no compran') and 'client' in t_lower:
         return {'skill': 'clientes_sin_pedido_semana', 'arguments': {}}
 
-    # 17) Saldo / cartera de un cliente
-    if _tiene(t, 'saldo', 'cuanto debe', 'estado de cuenta', 'cartera') and 'client' in t_lower:
+    # 17) Saldo / cartera / deuda de un cliente
+    # BUG real reportado en vivo (26/08): "que deuda tiene el cliente X" no
+    # disparaba NADA — 'deuda' nunca estuvo en la lista de raíces, ni acá ni
+    # en ninguna otra regla. ARA Coder sintetizó su propia tool
+    # (obtener_deuda_cliente, Tools/AutoGeneradas/) para resolverlo por su
+    # cuenta, pero esa skill NO se enganchó acá a propósito: tiene
+    # credenciales SQL Server hardcodeadas y sin cerrar la conexión (mismos
+    # bugs anti-zombi corregidos toda esta sesión en otros archivos), y no
+    # resuelve el identificador de cliente (exige co_cli exacto) — se prefirió
+    # apuntar 'deuda' a consultar_saldo_cliente, ya endurecida (v4.17) y con
+    # resolución real de RIF/cédula/código.
+    if _tiene(t, 'saldo', 'cuanto debe', 'estado de cuenta', 'cartera', 'deuda') and 'client' in t_lower:
         ident = _extraer_tras(t, 'cliente', 'de')
         if ident:
             return {'skill': 'consultar_saldo_cliente', 'arguments': {'identificador_cliente': ident}}
@@ -876,7 +1165,9 @@ def _detectar_intencion_skill(mensaje: str):
                 return {'skill': 'buscar_inventario', 'arguments': {'co_art': co_art}}
             return {'skill': 'buscar_inventario', 'arguments': {'busqueda': termino}}
 
-    return None
+    # Último recurso: catálogo dinámico de skills auto-generadas (v4.68) —
+    # solo si ninguna regla fija de arriba matcheó.
+    return _detectar_intencion_skill_autogenerada(t)
 
 
 def _ejecutar_skill_auto(skill: str, arguments: dict):
@@ -931,11 +1222,18 @@ def _ejecutar_skill_auto(skill: str, arguments: dict):
 
 
 def _formatear_fallback_sql(resultados: list, pregunta: str) -> str:
-    """Respuesta de respaldo con datos SQL cuando Ollama falla."""
+    """Respuesta de respaldo con datos SQL cuando NIM/DeepSeek/Ollama fallan
+    los 3 (raro, pero posible). Antes decía "no encontré PRODUCTOS" siempre
+    — engañoso para preguntas que nunca fueron sobre productos (facturas,
+    notas, clientes): el bot nunca intentó una búsqueda de inventario ahí,
+    así que afirmarlo era mentir sobre lo que en realidad pasó. Mensaje
+    genérico y honesto en su lugar."""
     if not resultados:
-        return (f"🤖 *{ARA_BOT_NOMBRE}*: No encontré productos que coincidan "
-                f"con \"{pregunta}\" en el sistema. Verifica que el código o "
-                f"nombre sea correcto.")
+        return (f"🤖 *{ARA_BOT_NOMBRE}*: No pude resolver \"{pregunta}\" con las "
+                f"herramientas disponibles en este momento. Si buscabas un "
+                f"producto, verificá el código o nombre; si era otra consulta "
+                f"(nota, factura, cliente), probá reformularla con más "
+                f"detalle o el número exacto.")
     lines = [f"🤖 *{ARA_BOT_NOMBRE}*: Encontré estos datos en el sistema:"]
     for p in resultados:
         lines.append(
@@ -947,12 +1245,18 @@ def _formatear_fallback_sql(resultados: list, pregunta: str) -> str:
     return "\n\n".join(lines)
 
 
-def _procesar_mensaje_ara_bot(mensaje_usuario: str) -> dict:
+def _procesar_mensaje_ara_bot(mensaje_usuario: str, historial: list = None) -> dict:
     """
     Flujo principal del bot con detección de intención:
     • Métricas globales (totales / SKUs) → consultas de agregación SQL
     • Búsqueda de producto → consulta LIKE en stock_maestro
     • Siempre intenta Ollama primero; si falla, responde con fallback SQL directo
+
+    `historial` (opcional): turnos previos de ESTA conversación
+    ([{"role": "user"/"assistant", "content": ...}], más viejo primero) — se
+    le pasa tal cual a los proveedores de IA (NIM/DeepSeek) que sí soportan
+    contexto multi-turno; las skills/SQL de arriba son de un solo turno por
+    naturaleza y no lo necesitan.
     """
     print(f"[ARA Bot] Procesando: {mensaje_usuario}")
 
@@ -1086,14 +1390,17 @@ def _procesar_mensaje_ara_bot(mensaje_usuario: str) -> dict:
         "disponibles. ¿De qué laboratorio (ej: VITALIS, DISTRILAB) o qué "
         "concentración/presentación (ej: 4MG/1ML o 8MG/2ML) necesitas?\"\n"
         "3. Mantén respuestas cortas, profesionales y amigables.\n"
-        "4. RECONOCIMIENTO DE INTENCIONES (matriz oficial): si el usuario pide "
-        "datos de una NOTA de entrega (número de 7-8 dígitos, 'consulta la nota X', "
-        "'qué pasó con la nota X'), inventario/stock de un producto, o "
-        "métricas/tiempos/traza/rendimiento/top de clientes, ARA debe ejecutar la "
-        "skill correspondiente (/consultar_nota, /buscar_inventario, "
-        "/gestion_super_esteroide_search). NUNCA respondas \"no tengo información "
-        "en mi base de datos\" o \"no puedo acceder\" sin intentar primero la skill "
-        "correspondiente.\n"
+        "4. Las skills automáticas (consultar_nota, buscar_inventario, etc.) ya "
+        "se intentaron ANTES de esta respuesta, por código — si estás generando "
+        "este mensaje es porque NINGUNA coincidió con la pregunta. NUNCA digas "
+        "ni insinúes que 'vas a ejecutar', 'estás ejecutando' o 'ejecutaste' una "
+        "skill o herramienta: no podés hacerlo desde acá, solo generás texto, y "
+        "afirmarlo es inventar una acción que no ocurrió. Si el CONTEXTO no trae "
+        "el dato real que te piden (ej. piden la nota de una factura y no hay "
+        "ninguna nota en el CONTEXTO), decilo con honestidad ('no tengo una "
+        "forma automática de resolver eso todavía con los datos que tengo') — "
+        "nunca inventes un resultado, ni positivo ni negativo, que no esté "
+        "literalmente en el CONTEXTO.\n"
         "5. Si el CONTEXTO trae 'DATOS TRAZABILIDAD (movimientos_preparador cruzado "
         "con notas_entrega)', esos son los movimientos REALES y VERIFICADOS de esa "
         "nota puntual (ya cotejados nota_id=notas_entrega.id, nunca inventados). "
@@ -1119,11 +1426,21 @@ def _procesar_mensaje_ara_bot(mensaje_usuario: str) -> dict:
     )
 
     # 4. Intentar NVIDIA NIM (cloud, ~1-3s)
-    respuesta_ia = _llamar_nim_ara_bot(system_ctx, user_msg)
+    respuesta_ia = _llamar_nim_ara_bot(system_ctx, user_msg, historial_mensajes=historial)
     if respuesta_ia:
         return {"tipo": "ia", "contenido": f"🤖 *{ARA_BOT_NOMBRE}*:\n{respuesta_ia}", "modelo": NVIDIA_MODEL}
 
-    # 5. Fallback Ollama local (si NVIDIA no está disponible)
+    # 4.5 Fallback DeepSeek directo (26/08: NIM sin modelos vivos hoy —
+    #     ver nota junto a NVIDIA_MODEL). Va ANTES que Ollama porque es un
+    #     modelo real capaz, no el phi3 local limitado (num_predict=50).
+    respuesta_deepseek = _llamar_deepseek_para_bot(system_ctx, user_msg, historial_mensajes=historial)
+    if respuesta_deepseek:
+        return {"tipo": "ia", "contenido": f"🤖 *{ARA_BOT_NOMBRE}*:\n{respuesta_deepseek}", "modelo": "DeepSeek"}
+
+    # 5. Fallback Ollama local (si NVIDIA y DeepSeek no están disponibles)
+    # Sin historial acá a propósito: num_ctx=512 (ver _llamar_ollama_para_bot)
+    # ya es apenas suficiente para system+pregunta actual con phi3 — meterle
+    # turnos previos lo desbordaría y empeoraría la respuesta, no la mejoraría.
     prompt_ollama = f"{system_ctx}\n\n{user_msg}"
     respuesta_ollama = _llamar_ollama_para_bot(prompt_ollama)
     if respuesta_ollama:
@@ -1273,6 +1590,72 @@ def _nombre_usuario(usuario_id: str, conn: sqlite3.Connection = None) -> str:
     finally:
         if close_conn:
             conn.close()
+
+
+def _notificar_push_nuevo_mensaje_worker(conv_id: int, sender_id: str,
+                                          contenido: str, tipo: str) -> None:
+    """Cuerpo real de la notificación — corre en un hilo aparte (ver
+    notificar_push_nuevo_mensaje_async), nunca en el hilo de la request.
+
+    Perf real (31/08): antes esto corría SÍNCRONO dentro de /api/chat/enviar
+    (recibía la `conn` de la request y hacía el webpush() bloqueante ahí
+    mismo) — cada mensaje de chat de TODA la app pagaba la latencia de una
+    llamada HTTP a Google/Mozilla antes de poder responderle al usuario que
+    lo mandó. Ahora abre su PROPIA conexión corta (nunca comparte la `conn`
+    de la request entre hilos — sqlite3 no es thread-safe así) y corre en
+    background; el endpoint ya respondió mucho antes de que esto termine.
+
+    Best-effort total — cualquier fallo se traga acá, nunca debe tumbar el
+    envío del mensaje real (que para este punto ya se respondió igual).
+    Solo aplica a conversaciones usuario_a_id/usuario_b_id (chat interno
+    real entre 2 personas) — las de `contacto_id` son bot/externo y no
+    tienen un usuario interno puntual al que avisarle."""
+    conn = None
+    try:
+        conn = _get_db()
+        fila = conn.execute(
+            "SELECT usuario_a_id, usuario_b_id FROM conversaciones WHERE id = ?",
+            (conv_id,)
+        ).fetchone()
+        if not fila or not fila['usuario_a_id'] or not fila['usuario_b_id']:
+            return  # conversación de bot/contacto externo, no de usuario a usuario
+
+        sender_id = str(sender_id or "")
+        destinatario = (
+            fila['usuario_b_id'] if str(fila['usuario_a_id']) == sender_id
+            else fila['usuario_a_id']
+        )
+        if not destinatario or str(destinatario) == sender_id:
+            return
+
+        remitente_nombre = _nombre_usuario(sender_id, conn)
+        cuerpo = contenido.strip() if tipo == 'texto' else f"Te envió un archivo ({tipo})"
+        if len(cuerpo) > 120:
+            cuerpo = cuerpo[:117] + "..."
+
+        push_notif.enviar_push_usuario(
+            str(destinatario),
+            titulo=f"💬 {remitente_nombre}",
+            cuerpo=cuerpo or "Nuevo mensaje",
+            url="/",
+        )
+    except Exception as e:
+        print(f"[PUSH] No se pudo notificar mensaje nuevo (conv {conv_id}): {e}", flush=True)
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def notificar_push_nuevo_mensaje_async(conv_id: int, sender_id: str,
+                                        contenido: str, tipo: str) -> None:
+    """Dispara _notificar_push_nuevo_mensaje_worker en un hilo daemon y
+    vuelve al toque — mismo patrón ya usado acá mismo para la respuesta
+    async del bot (_procesar_respuesta_ara_bot_async)."""
+    threading.Thread(
+        target=_notificar_push_nuevo_mensaje_worker,
+        args=(conv_id, sender_id, contenido, tipo),
+        daemon=True,
+    ).start()
 
 
 def _actualizar_conversacion(conv_id: int, ultimo_msg: str,
@@ -1558,6 +1941,9 @@ def register_chat_routes(app):
                     msg = dict(conn.execute(
                         "SELECT * FROM mensajes WHERE id = ?", (msg_id,)
                     ).fetchone())
+                    # Push (28/08, a pedido del usuario; async desde 31/08 —
+                    # ver nota de perf en notificar_push_nuevo_mensaje_async)
+                    notificar_push_nuevo_mensaje_async(conv_id, sender_id, contenido, tipo)
                 finally:
                     conn.close()
 

@@ -62,9 +62,23 @@ except ImportError:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, 'data', 'proyecto_ara.db')
 
-# NVIDIA NIM Vision (motor primario) — lista de prioridad COMPROBADA de
-# modelos multimodales reales en el endpoint (gemma-4-31b-it se colgaba
-# hasta agotar el timeout; minimax/deepseek retornaban 404/payloads vacíos).
+# DeepSeek Vision (motor PRIMARIO desde 28/08 — antes era NVIDIA NIM, que
+# ahora pasa a ser el respaldo con su pool de 5 keys intacto). Modelo real
+# confirmado en vivo contra GET /v1/models de esta cuenta:
+# deepseek-v4-flash-vision-exp (único de los 3 listados con soporte de
+# imágenes). Es un modelo con razonamiento — la respuesta trae
+# "reasoning_content" aparte de "content"; si max_tokens es bajo, el
+# razonamiento se come todo el presupuesto y "content" llega vacío
+# (finish_reason="length") — probado en vivo: con max_tokens=300 fallaba así,
+# con 2000 responde limpio en 3-4s con finish_reason="stop".
+DEEPSEEK_VISION_URL = "https://api.deepseek.com/v1/chat/completions"
+DEEPSEEK_VISION_MODEL = os.environ.get("DEEPSEEK_VISION_MODEL", "deepseek-v4-flash-vision-exp")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+
+# NVIDIA NIM Vision (motor de RESPALDO desde 28/08) — lista de prioridad
+# COMPROBADA de modelos multimodales reales en el endpoint (gemma-4-31b-it se
+# colgaba hasta agotar el timeout; minimax/deepseek retornaban 404/payloads
+# vacíos).
 NVIDIA_NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NVIDIA_VISION_MODEL = os.environ.get("ARA_VISION_MODEL", "")
 
@@ -922,6 +936,92 @@ def _descartar_modelo(modelo: str):
     )
 
 
+def _llamar_deepseek_vision(base64_img: str, timeout: float = 20.0) -> str | None:
+    """Llama a DeepSeek Vision (motor primario desde 28/08).
+
+    Timeout más holgado que NIM (20s vs 6s) porque es un modelo con
+    razonamiento interno (reasoning_content) — probado en vivo: 3-4s típico,
+    pero sin el pool de 5 keys de NIM para amortiguar una key/cuenta lenta,
+    así que no conviene cortar tan agresivo como con NIM. max_tokens alto
+    (2000) es necesario: con presupuestos bajos el razonamiento se come todo
+    el budget y "content" llega vacío con finish_reason="length" (visto en
+    vivo). Si eso pasa igual pese al margen, se trata como fallo y se cae al
+    siguiente motor (NIM), nunca se devuelve texto vacío como si fuera válido.
+    """
+    if not DEEPSEEK_API_KEY:
+        return None
+
+    payload = {
+        "model": DEEPSEEK_VISION_MODEL,
+        "messages": [
+            {"role": "system", "content": VISION_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_img}"
+                    }}
+                ]
+            }
+        ],
+        "max_tokens": 2000,
+        "temperature": 0.1,
+    }
+
+    print(
+        f"[DEEPSEEK_VISION] 🚀 Enviando foto | Modelo: {DEEPSEEK_VISION_MODEL}",
+        flush=True,
+    )
+    t_inicio = time.perf_counter()
+    try:
+        resp = requests.post(
+            DEEPSEEK_VISION_URL,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            timeout=timeout,
+        )
+        latencia_ms = round((time.perf_counter() - t_inicio) * 1000.0, 1)
+
+        if resp.status_code != 200:
+            print(
+                f"[DEEPSEEK_VISION] ⚠️ HTTP {resp.status_code} en {latencia_ms}ms: "
+                f"{resp.text[:150]}",
+                flush=True,
+            )
+            return None
+
+        data = resp.json()
+        choice = data["choices"][0]
+        texto = (choice.get("message", {}).get("content") or "").strip()
+        finish_reason = choice.get("finish_reason")
+
+        if not texto:
+            print(
+                f"[DEEPSEEK_VISION] ⚠️ content vacío en {latencia_ms}ms "
+                f"(finish_reason={finish_reason!r}) — probable razonamiento "
+                f"agotó max_tokens. Cayendo al siguiente motor.",
+                flush=True,
+            )
+            return None
+
+        print(
+            f"[DEEPSEEK_VISION] ✅ Respuesta exitosa en {latencia_ms}ms "
+            f"(finish_reason={finish_reason!r})",
+            flush=True,
+        )
+        return texto
+
+    except requests.exceptions.Timeout:
+        print(f"[DEEPSEEK_VISION] ⏱️ Timeout {timeout}s superado.", flush=True)
+        return None
+    except Exception as e:
+        print(f"[DEEPSEEK_VISION] ⚠️ Fallo: {str(e)[:150]}", flush=True)
+        return None
+
+
 def _llamar_nim_vision(base64_img: str, timeout: float = 6.0) -> str | None:
     """Llama a NVIDIA NIM Vision con pool de 5 API Keys, pool multimodelo
     de prioridad comprobada y failover automático.
@@ -1111,10 +1211,11 @@ def procesar_imagen_visor(image_input) -> dict:
     4. Busca el código o descripción extraídos en stock_maestro.
     5. Une datos de visión + datos de inventario.
 
-    Retorna dict estructurado para el frontend. NVIDIA NIM es el PASO 1
-    ABSOLUTO: no hay bandera/bypass que salte `_llamar_nim_vision`.
+    Retorna dict estructurado para el frontend. Orden de motores desde 28/08:
+    DeepSeek Vision (primario) → NVIDIA NIM (respaldo, pool de 5 keys) →
+    Ollama LLaVA local (último recurso).
     """
-    print("[ARA_VISION] 🟢 Ejecutando pipeline de visión NVIDIA NIM...", flush=True)
+    print("[ARA_VISION] 🟢 Ejecutando pipeline de visión (DeepSeek → NIM → Ollama)...", flush=True)
 
     try:
         # 1. Preprocesar imagen (recorte central + contraste) y convertir a base64
@@ -1123,11 +1224,16 @@ def procesar_imagen_visor(image_input) -> dict:
     except Exception as e:
         return {"status": "error", "mensaje": f"Error leyendo imagen: {e}"}
 
-    # 2. OCR con NVIDIA NIM Vision (primario)
-    print("[ARA Vision] Llamando a NVIDIA NIM Vision...")
-    texto_ocr = _llamar_nim_vision(b64)
+    # 2. OCR con DeepSeek Vision (primario)
+    print("[ARA Vision] Llamando a DeepSeek Vision...")
+    texto_ocr = _llamar_deepseek_vision(b64)
 
-    # 3. Fallback a Ollama LLaVA si NVIDIA falla
+    # 3. Fallback a NVIDIA NIM Vision si DeepSeek falla
+    if not texto_ocr:
+        print("[ARA Vision] Fallback a NVIDIA NIM Vision...")
+        texto_ocr = _llamar_nim_vision(b64)
+
+    # 4. Fallback a Ollama LLaVA si NIM también falla
     if not texto_ocr:
         print("[ARA Vision] Fallback a Ollama LLaVA...")
         texto_ocr = _llamar_ollama_vision(b64)
@@ -1135,7 +1241,7 @@ def procesar_imagen_visor(image_input) -> dict:
     if not texto_ocr:
         return {
             "status": "error",
-            "mensaje": "No se pudo analizar la imagen (NVIDIA NIM y Ollama no respondieron)."
+            "mensaje": "No se pudo analizar la imagen (DeepSeek, NVIDIA NIM y Ollama no respondieron)."
         }
 
     # Log de diagnóstico (v4.53): antes no había forma de ver qué respondió

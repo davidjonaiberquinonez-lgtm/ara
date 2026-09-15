@@ -29,6 +29,7 @@ $env:ERP_SSO_SECRET       = [System.Environment]::GetEnvironmentVariable('ERP_SS
 $env:ARA_SESSION_SECRET   = [System.Environment]::GetEnvironmentVariable('ARA_SESSION_SECRET', 'User')
 $env:DIP_SERVICE_KEY      = [System.Environment]::GetEnvironmentVariable('DIP_SERVICE_KEY', 'User')
 $env:ARA_ERP_URL          = [System.Environment]::GetEnvironmentVariable('ARA_ERP_URL', 'User')
+$env:ARA_API_PUBLICA_KEY  = [System.Environment]::GetEnvironmentVariable('ARA_API_PUBLICA_KEY', 'User')
 if (-not $env:ARA_SERVER_PORT) { $env:ARA_SERVER_PORT = [System.Environment]::GetEnvironmentVariable('ARA_SERVER_PORT', 'User') }
 
 Set-Location $carpeta
