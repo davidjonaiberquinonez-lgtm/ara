@@ -27,6 +27,7 @@ __pycache__/
 .env.*
 *.key
 *.pem
+bin/secrets.local.ps1
 
 # Archivos temporales del sistema
 Thumbs.db

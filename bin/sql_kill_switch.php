@@ -144,9 +144,15 @@ if ($kS_matarKickserver) {
 // AMPLIADO v4.53 — a pedido del usuario, los procesos 'JVT PEDIDOS'
 // (verificado en vivo contra sys.dm_exec_sessions: program_name = 'JVT
 // PEDIDOS', usado por los ejecutivos de venta desde sus PCs EJECUTIVO-*/
-// VENT-*/DESKTOP-*) reciben 15s MÁS de tolerancia que el resto (30s en vez
-// de 15s) antes de ser candidatos a KILL, porque sus transacciones de
-// pedido tardan naturalmente más que una consulta de otro sistema.
+// VENT-*/DESKTOP-*) reciben 15s MÁS de tolerancia que el resto antes de ser
+// candidatos a KILL, porque sus transacciones de pedido tardan naturalmente
+// más que una consulta de otro sistema.
+// AMPLIADO v4.65 (16/09) — a pedido del usuario, umbral general subido de
+// 15s a 45s: se detectó "profit-api" (host EXODO/.23) creando cotizaciones
+// reales (INSERT INTO cotiz_c) con bloqueos de 15-28s que ya caían en el
+// umbral viejo y se mataban a mitad de una escritura legítima. JVT sigue
+// con +15s sobre el general (ahora 60s) para preservar la misma tolerancia
+// relativa que tenía antes.
 $kS_sqlBloq = "SELECT b.session_id, b.dormido_sec,
                       s.host_name, s.login_name, s.program_name, c.client_net_address,
                       t.text AS sql_text, ib.event_info AS input_buffer
@@ -157,7 +163,7 @@ $kS_sqlBloq = "SELECT b.session_id, b.dormido_sec,
                    JOIN sys.dm_exec_sessions bs ON bs.session_id = r.blocking_session_id
                    WHERE r.blocking_session_id <> 0
                      AND r.blocking_session_id <> @@SPID
-                     AND r.wait_time > (CASE WHEN bs.program_name LIKE '%JVT%' THEN 30000 ELSE 15000 END)
+                     AND r.wait_time > (CASE WHEN bs.program_name LIKE '%JVT%' THEN 60000 ELSE 45000 END)
                    GROUP BY r.blocking_session_id
                ) b
                JOIN sys.dm_exec_sessions s ON s.session_id = b.session_id
@@ -170,7 +176,7 @@ if ($kS_stmtBloq !== false) {
         $kS_candidatos[] = [
             'spid'          => (int) $kS_fila['session_id'],
             'dormido_sec'   => (int) $kS_fila['dormido_sec'],
-            'motivo'        => 'BLOQUEADOR_ACTIVO_15S',
+            'motivo'        => 'BLOQUEADOR_ACTIVO_45S',
             'host'          => (string) ($kS_fila['host_name'] ?? ''),
             'ip'            => (string) ($kS_fila['client_net_address'] ?? ''),
             'login'         => (string) ($kS_fila['login_name'] ?? ''),

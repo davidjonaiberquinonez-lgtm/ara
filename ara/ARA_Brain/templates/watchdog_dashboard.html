@@ -177,7 +177,7 @@
             <select id="f-motivo">
                 <option value="">Todos</option>
                 <option value="KICKSERVER_APACHE_10MIN">KICKSERVER (Apache ghost)</option>
-                <option value="BLOQUEADOR_ACTIVO_15S">Bloqueador activo</option>
+                <option value="BLOQUEADOR_ACTIVO_45S">Bloqueador activo</option>
             </select>
         </div>
         <div class="campo"><label>Desde</label><input type="datetime-local" id="f-desde"></div>
@@ -231,7 +231,7 @@ function escHtml(s) { const d = document.createElement('div'); d.textContent = S
 
 function pillMotivo(m) {
     if (m === 'KICKSERVER_APACHE_10MIN') return `<span class="pill pill-kickserver">KICKSERVER (Apache ghost)</span>`;
-    if (m === 'BLOQUEADOR_ACTIVO_15S') return `<span class="pill pill-bloqueador">Bloqueador activo</span>`;
+    if (m === 'BLOQUEADOR_ACTIVO_45S') return `<span class="pill pill-bloqueador">Bloqueador activo</span>`;
     return `<span class="pill">${escHtml(m)}</span>`;
 }
 

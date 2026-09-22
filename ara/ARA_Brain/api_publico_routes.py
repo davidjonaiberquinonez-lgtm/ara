@@ -313,6 +313,111 @@ def _escribir_comentario_nota(fact_num: int, reng_num: int, comentario_nuevo: st
     return {"ok": True, "fact_num": fact_num, "reng_num": reng_num, "comentario_anterior": anterior, "comentario_actual": nuevo}
 
 
+# ── Descripción de CABECERA de la nota, tabla not_ent (22/09) ──────────────
+# Confirmado en vivo probando contra una nota real: el tablero de "alcabala"
+# (checkpoint/despacho) NO lee reng_nde.comentario (eso es por renglón, uso
+# distinto) — lee not_ent.descrip, que es la cabecera de la NOTA (tabla
+# separada de cotiz_c y de reng_nde, con su propio 'anulada'). Confirmado
+# escribiendo un texto de prueba corto en una nota real y viéndolo aparecer
+# en el tablero, después revertido a vacío. varchar(60) — límite real de la
+# columna en SQL Server, no inventado.
+DESCRIP_NOT_ENT_MAX_LEN = 60
+_LOG_DESCRIPCION_NOTA = os.path.join(_LOG_DIR, "api_publico_descripcion_not_ent.txt")
+
+
+def _log_escritura_descripcion(fact_num: int, anterior: str, nuevo: str, modo: str) -> None:
+    try:
+        os.makedirs(_LOG_DIR, exist_ok=True)
+        linea = (
+            f"{time.strftime('%Y-%m-%d %H:%M:%S')} | fact_num={fact_num} modo={modo} "
+            f"| antes={anterior!r} -> despues={nuevo!r}\n"
+        )
+        with open(_LOG_DESCRIPCION_NOTA, "a", encoding="utf-8") as f:
+            f.write(linea)
+    except Exception:
+        pass  # el log nunca debe tumbar la escritura real
+
+
+def _leer_descripcion_nota(fact_num: int) -> dict:
+    import pyodbc
+
+    pyodbc.pooling = False
+    conn_str = (
+        f"DRIVER={{{_SQL_DRIVER}}};SERVER={_SQL_HOST},{_SQL_PORT};DATABASE={_SQL_DB};"
+        f"UID={_SQL_USER};PWD={_SQL_PASS}"
+    )
+    try:
+        conn = pyodbc.connect(conn_str, timeout=_SQL_TIMEOUT_S)
+        try:
+            cur = conn.cursor()
+            fila = cur.execute(
+                "SELECT descrip, anulada FROM not_ent WITH (NOLOCK) WHERE fact_num = ?",
+                (fact_num,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"ok": False, "error": f"No se pudo consultar Profit (not_ent): {exc}"}
+
+    if fila is None:
+        return {"ok": False, "error": f"No existe la nota {fact_num} en not_ent."}
+
+    return {
+        "ok": True,
+        "fact_num": fact_num,
+        "descripcion": (fila.descrip or "").strip(),
+        "anulada": bool(fila.anulada),
+    }
+
+
+def _escribir_descripcion_nota(fact_num: int, descripcion_nueva: str, modo: str) -> dict:
+    import pyodbc
+
+    pyodbc.pooling = False
+    conn_str = (
+        f"DRIVER={{{_SQL_DRIVER}}};SERVER={_SQL_HOST},{_SQL_PORT};DATABASE={_SQL_DB};"
+        f"UID={_SQL_USER};PWD={_SQL_PASS}"
+    )
+    try:
+        conn = pyodbc.connect(conn_str, timeout=_SQL_TIMEOUT_S)
+        try:
+            cur = conn.cursor()
+            fila = cur.execute(
+                "SELECT descrip, anulada FROM not_ent WITH (NOLOCK) WHERE fact_num = ?",
+                (fact_num,),
+            ).fetchone()
+            if fila is None:
+                return {"ok": False, "error": f"No existe la nota {fact_num} en not_ent."}
+            if fila.anulada:
+                return {"ok": False, "error": f"La nota {fact_num} está ANULADA — no se escribe."}
+
+            anterior = (fila.descrip or "").strip()
+            if modo == "reemplazar":
+                nuevo = descripcion_nueva
+            else:
+                nuevo = (anterior + " " + descripcion_nueva).strip() if anterior else descripcion_nueva
+
+            if len(nuevo) > DESCRIP_NOT_ENT_MAX_LEN:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"El resultado ({len(nuevo)} caracteres) supera el máximo de "
+                        f"{DESCRIP_NOT_ENT_MAX_LEN} de la columna not_ent.descrip. "
+                        f"Usá 'modo':'reemplazar' o acortá el texto."
+                    ),
+                }
+
+            cur.execute("UPDATE not_ent SET descrip = ? WHERE fact_num = ?", (nuevo, fact_num))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"ok": False, "error": f"No se pudo escribir en Profit (not_ent): {exc}"}
+
+    _log_escritura_descripcion(fact_num, anterior, nuevo, modo)
+    return {"ok": True, "fact_num": fact_num, "descripcion_anterior": anterior, "descripcion_actual": nuevo}
+
+
 # ── PDF de factura, a partir de una NOTA (11/09) ────────────────────────────
 # Cadena completa confirmada en vivo: nota (reng_nde.fact_num) -> reng_fac
 # (num_doc=nota, tipo_doc='E') -> fact_num real de la FACTURA. El servidor
@@ -493,6 +598,33 @@ def register_api_publico_routes(app):
         if modo not in ("agregar", "reemplazar"):
             return jsonify({"ok": False, "error": "'modo' debe ser 'agregar' (default) o 'reemplazar'."}), 400
         resultado = _escribir_comentario_nota(fact_num, reng_num, comentario, modo)
+        return jsonify(resultado), (200 if resultado.get("ok") else 502)
+
+    @app.route("/api/publico/nota-entrega/descripcion", methods=["GET"])
+    def api_publico_leer_descripcion_nota():
+        try:
+            fact_num = int(request.args.get("fact_num", ""))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Hace falta 'fact_num' (entero) — número de NOTA (not_ent)."}), 400
+        resultado = _leer_descripcion_nota(fact_num)
+        return jsonify(resultado), (200 if resultado.get("ok") else 502)
+
+    @app.route("/api/publico/nota-entrega/descripcion", methods=["POST"])
+    def api_publico_escribir_descripcion_nota():
+        datos = request.get_json(silent=True) or {}
+        try:
+            fact_num = int(datos.get("fact_num"))
+        except (TypeError, ValueError):
+            return jsonify({"ok": False, "error": "Hace falta 'fact_num' (entero) en el body — número de NOTA (not_ent)."}), 400
+        descripcion = (datos.get("descripcion") or "").strip()
+        if not descripcion:
+            return jsonify({"ok": False, "error": "Falta 'descripcion' (texto a agregar)."}), 400
+        if len(descripcion) > DESCRIP_NOT_ENT_MAX_LEN:
+            return jsonify({"ok": False, "error": f"'descripcion' supera el máximo de {DESCRIP_NOT_ENT_MAX_LEN} caracteres."}), 400
+        modo = datos.get("modo", "agregar")
+        if modo not in ("agregar", "reemplazar"):
+            return jsonify({"ok": False, "error": "'modo' debe ser 'agregar' (default) o 'reemplazar'."}), 400
+        resultado = _escribir_descripcion_nota(fact_num, descripcion, modo)
         return jsonify(resultado), (200 if resultado.get("ok") else 502)
 
     @app.route("/api/publico/nota-entrega/factura-pdf", methods=["GET"])

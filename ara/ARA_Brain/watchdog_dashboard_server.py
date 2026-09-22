@@ -289,7 +289,7 @@ def _armar_analisis(filtros: dict = None) -> dict:
             "programa": _mas_comun(o["programa"] for o in ocurrencias),
         })
 
-    # Desglose por motivo (KICKSERVER_APACHE_10MIN vs BLOQUEADOR_ACTIVO_15S)
+    # Desglose por motivo (KICKSERVER_APACHE_10MIN vs BLOQUEADOR_ACTIVO_45S)
     motivos_totales = Counter(d["motivo"] for d in detalles_filtrados)
 
     # Ranking por host/IP responsable (agrupa todos los SPIDs de un mismo
