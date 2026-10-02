@@ -511,6 +511,184 @@ def _buscar_producto(texto: str, limite: int) -> dict:
             return {"ok": False, "error": f"No se pudo consultar el maestro: {exc}"}
 
 
+# ── API "vendedores" (02/10) — BD DE PRUEBA, PRUEB25 a propósito ──────────
+# A pedido del usuario: ficha de clientes y facturas para una BD de prueba
+# de vendedores. Deliberadamente contra PRUEB25, NO CRISTM25 (al revés del
+# resto de este archivo) — es justo lo que pidió. Mismo patrón de conexión
+# corta + NOLOCK + X-API-Key que el resto del archivo.
+_SQL_DB_PRUEBAS = "PRUEB25"
+LIMITE_MAX_VENDEDORES = 200
+
+_COLUMNAS_CLIENTE_PUBLICAS = [
+    "co_cli", "cli_des", "rif", "nit", "telefonos", "email",
+    "direc1", "direc2", "ciudad", "co_zon", "co_ven", "mont_cre",
+    "plaz_pag", "saldo", "inactivo", "estado", "fe_us_mo",
+]
+_COLUMNAS_FACTURA_PUBLICAS = [
+    "fact_num", "fec_emis", "co_cli", "nombre", "co_ven", "co_sucu",
+    "tot_bruto", "tot_neto", "iva", "moneda", "anulada", "status",
+    "num_control", "fe_us_mo",
+]
+
+
+def _conectar_pruebas():
+    import pyodbc
+
+    pyodbc.pooling = False
+    conn_str = (
+        f"DRIVER={{{_SQL_DRIVER}}};SERVER={_SQL_HOST},{_SQL_PORT};DATABASE={_SQL_DB_PRUEBAS};"
+        f"UID={_SQL_USER};PWD={_SQL_PASS}"
+    )
+    return pyodbc.connect(conn_str, timeout=_SQL_TIMEOUT_S)
+
+
+def _paginar_args() -> tuple[int, int, str]:
+    """(pagina, limite, actualizado_desde) desde query params, con limites seguros."""
+    try:
+        pagina = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        pagina = 1
+    try:
+        limite = max(1, min(LIMITE_MAX_VENDEDORES, int(request.args.get("limit", 50))))
+    except (TypeError, ValueError):
+        limite = 50
+    actualizado_desde = (request.args.get("actualizado_desde") or "").strip()
+    return pagina, limite, actualizado_desde
+
+
+def _vendedores_clientes() -> dict:
+    pagina, limite, actualizado_desde = _paginar_args()
+    co_ven = (request.args.get("co_ven") or "").strip()
+    offset = (pagina - 1) * limite
+
+    where = ["1=1"]
+    params = []
+    if actualizado_desde:
+        where.append("fe_us_mo >= ?")
+        params.append(actualizado_desde)
+    if co_ven:
+        where.append("LTRIM(RTRIM(co_ven)) = ?")
+        params.append(co_ven)
+    where_sql = " AND ".join(where)
+
+    cols_sql = ", ".join(_COLUMNAS_CLIENTE_PUBLICAS)
+    sql = f"""
+        SELECT {cols_sql}
+        FROM clientes WITH (NOLOCK)
+        WHERE {where_sql}
+        ORDER BY fe_us_mo, co_cli
+        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+    """
+    try:
+        conn = _conectar_pruebas()
+        try:
+            cur = conn.cursor()
+            filas = cur.execute(sql, params + [offset, limite + 1]).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"ok": False, "error": f"No se pudo consultar Profit (clientes, {_SQL_DB_PRUEBAS}): {exc}"}
+
+    hay_mas = len(filas) > limite
+    filas = filas[:limite]
+    data = []
+    for f in filas:
+        fila = dict(zip(_COLUMNAS_CLIENTE_PUBLICAS, f))
+        for k, v in fila.items():
+            if isinstance(v, str):
+                fila[k] = v.strip()
+            elif hasattr(v, "isoformat"):
+                fila[k] = v.isoformat()
+        data.append(fila)
+
+    return {"ok": True, "page": pagina, "limit": limite, "has_more": hay_mas, "total_en_pagina": len(data), "data": data}
+
+
+def _vendedores_facturas() -> dict:
+    pagina, limite, actualizado_desde = _paginar_args()
+    co_ven = (request.args.get("co_ven") or "").strip()
+    co_cli = (request.args.get("co_cli") or "").strip()
+    offset = (pagina - 1) * limite
+
+    where = ["1=1"]
+    params = []
+    if actualizado_desde:
+        where.append("fe_us_mo >= ?")
+        params.append(actualizado_desde)
+    if co_ven:
+        where.append("LTRIM(RTRIM(co_ven)) = ?")
+        params.append(co_ven)
+    if co_cli:
+        where.append("LTRIM(RTRIM(co_cli)) = ?")
+        params.append(co_cli)
+    where_sql = " AND ".join(where)
+
+    cols_sql = ", ".join(_COLUMNAS_FACTURA_PUBLICAS)
+    sql = f"""
+        SELECT {cols_sql}
+        FROM factura WITH (NOLOCK)
+        WHERE {where_sql}
+        ORDER BY fe_us_mo, fact_num
+        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+    """
+    try:
+        conn = _conectar_pruebas()
+        try:
+            cur = conn.cursor()
+            filas = cur.execute(sql, params + [offset, limite + 1]).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"ok": False, "error": f"No se pudo consultar Profit (factura, {_SQL_DB_PRUEBAS}): {exc}"}
+
+    hay_mas = len(filas) > limite
+    filas = filas[:limite]
+    data = []
+    for f in filas:
+        fila = dict(zip(_COLUMNAS_FACTURA_PUBLICAS, f))
+        for k, v in fila.items():
+            if isinstance(v, str):
+                fila[k] = v.strip()
+            elif hasattr(v, "isoformat"):
+                fila[k] = v.isoformat()
+            elif hasattr(v, "__float__") and not isinstance(v, (int, float, bool)):
+                fila[k] = float(v)
+        data.append(fila)
+
+    return {"ok": True, "page": pagina, "limit": limite, "has_more": hay_mas, "total_en_pagina": len(data), "data": data}
+
+
+def _vendedores_factura_lineas(fact_num: int) -> dict:
+    try:
+        conn = _conectar_pruebas()
+        try:
+            cur = conn.cursor()
+            filas = cur.execute(
+                """
+                SELECT reng_num, co_art, des_art, co_alma, total_art, uni_venta,
+                       prec_vta, reng_neto, anulado
+                FROM reng_fac WITH (NOLOCK)
+                WHERE fact_num = ?
+                ORDER BY reng_num
+                """,
+                (fact_num,),
+            ).fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:
+        return {"ok": False, "error": f"No se pudo consultar Profit (reng_fac, {_SQL_DB_PRUEBAS}): {exc}"}
+
+    cols = ["reng_num", "co_art", "des_art", "co_alma", "total_art", "uni_venta", "prec_vta", "reng_neto", "anulado"]
+    data = []
+    for f in filas:
+        fila = dict(zip(cols, f))
+        for k, v in fila.items():
+            if isinstance(v, str):
+                fila[k] = v.strip()
+        data.append(fila)
+    return {"ok": True, "fact_num": fact_num, "total_lineas": len(data), "data": data}
+
+
 def register_api_publico_routes(app):
     @app.before_request
     def _exigir_api_key_publica():
@@ -626,6 +804,18 @@ def register_api_publico_routes(app):
             return jsonify({"ok": False, "error": "'modo' debe ser 'agregar' (default) o 'reemplazar'."}), 400
         resultado = _escribir_descripcion_nota(fact_num, descripcion, modo)
         return jsonify(resultado), (200 if resultado.get("ok") else 502)
+
+    @app.route("/api/publico/vendedores/clientes", methods=["GET"])
+    def api_vendedores_clientes():
+        return jsonify(_vendedores_clientes())
+
+    @app.route("/api/publico/vendedores/facturas", methods=["GET"])
+    def api_vendedores_facturas():
+        return jsonify(_vendedores_facturas())
+
+    @app.route("/api/publico/vendedores/facturas/<int:fact_num>/lineas", methods=["GET"])
+    def api_vendedores_factura_lineas(fact_num):
+        return jsonify(_vendedores_factura_lineas(fact_num))
 
     @app.route("/api/publico/nota-entrega/factura-pdf", methods=["GET"])
     def api_publico_factura_pdf():
